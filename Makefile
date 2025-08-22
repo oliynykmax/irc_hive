@@ -1,8 +1,12 @@
 NAME    := ircserv
 CXX     := c++
 CXXFLAGS:= -Wall -Wextra -Werror -std=c++20 -Iinc
-SRCS    := \
-		   src/main.cpp
+SRC    := \
+		main.cpp \
+		Server.cpp \
+		RecvParser.cpp \
+		Client.cpp
+SRCS	:= $(addprefix src/, $(SRC))
 OBJS    := $(SRCS:.cpp=.o)
 DEPS    := $(OBJS:.o=.d)
 
