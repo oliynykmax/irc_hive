@@ -5,7 +5,9 @@ SRC    := \
 		main.cpp \
 		Server.cpp \
 		RecvParser.cpp \
-		Client.cpp
+		Client.cpp \
+		Command.cpp \
+		CommandDispatcher.cpp
 SRCS	:= $(addprefix src/, $(SRC))
 OBJS    := $(SRCS:.cpp=.o)
 DEPS    := $(OBJS:.o=.d)
@@ -25,6 +27,7 @@ $(NAME): $(OBJS)
 
 clean:
 	@echo "🧹 Cleaning..."
+	rm -rf $(OBJS)
 	rm -rf .build
 
 fclean: clean

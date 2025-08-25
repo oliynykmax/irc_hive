@@ -2,48 +2,29 @@
 #include <string>
 #include <sstream>
 #include <optional>
-#include <vector>
 #include <iostream>
-
-enum cmd
-{
-	NICK,
-	USER,
-	JOIN,
-	PART,
-	PRIVMSG,
-	KICK,
-	INVITE,
-	TOPIC,
-	MODE,
-	QUIT,
-	ERROR
-};
-
-struct	Message
-{
-	std::optional<std::string>	prefix;
-	std::string					command;
-	std::vector<std::string>	params;
-};
-
-std::ostream	&operator<<(std::ostream &os, const Message &msg);
+#include <queue>
+#include <memory>
+#include "Message.hpp"
 
 /**	
  * @class	RecvParser
- * @brief	A class for parsing data read by recv() for use by the client
+ * @brief	A class for parsing data read by recv() into a message queue
  */
 class	RecvParser
 {
 	public:
+		RecvParser(std::queue<std::unique_ptr<Message>> &msg_queue);
+
 		void	feed(const char *read_buf, size_t len);
 
 	private:
 		std::string	_buffer;
+		std::queue<std::unique_ptr<Message>> &_output;
+
+		RecvParser(void) = delete;
 
 		void	_normalizeNewLines(void);
 		void	_parseBuffer(void);
 		Message	_parseMessage(const std::string &msg);
-		void	_handle(const Message &msg);
-
 };
