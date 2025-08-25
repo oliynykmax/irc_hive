@@ -16,11 +16,6 @@ namespace {
 	volatile std::sig_atomic_t gSigStatus = 0;
 }
 
-void signalHandler(int signal)
-{
-    gSigStatus = signal;
-}
-
 void clientWrite(int fd) {
 	int messageLen = 0;
 	string msg;
