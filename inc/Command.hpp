@@ -2,6 +2,13 @@
 #include "Message.hpp"
 #include <iostream>
 
+/**
+ * @class	ICommand
+ * @brief	Interface for all IRC commands
+ *
+ * Each concrete Command class overrides the execute() function to do what they
+ * are supposed to do with the parsed Message struct received as an argument.
+ */
 class	ICommand
 {
 	public:
