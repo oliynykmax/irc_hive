@@ -12,6 +12,15 @@
 using namespace std;
 Server *irc;
 
+namespace {
+	volatile std::sig_atomic_t gSigStatus = 0;
+}
+
+void signalHandler(int signal)
+{
+    gSigStatus = signal;
+}
+
 void clientWrite(int fd) {
 	int messageLen = 0;
 	string msg;
@@ -104,16 +113,12 @@ int main(int argc, char *argv[]) {
 		return 1;
 	}
 
- 	// struct epoll_event event;
-  //   vector<epoll_event> events;
-  //   events.reserve(sizeof(epoll_event) * 10);
+	signal(SIGINT, [](int) { gSigStatus = 1; });
+	signal(SIGQUIT, [](int) { gSigStatus = 1; });
 
-  //   event.events = EPOLLIN;
-  //   event.data.fd = sock;
-  //   epoll_ctl(irc->getServerFd(), EPOLL_CTL_ADD, sock, &event);
     irc->addOwnSocket(sock);
     irc->registerHandler(sock, EPOLLIN, [](int socket) { acceptClient(socket); });
-	while (true) {
+	while (!gSigStatus) {
 		try {
 			irc->poll();
 		} catch (runtime_error &err) {
