@@ -6,6 +6,13 @@
 #include "Command.hpp"
 #include "Message.hpp"
 
+/**
+ * @class	CommandDispatcher
+ * @brief	A class for executing commands received from parser
+ *
+ * CommandDispatcher contains an unordered_map (dictionary) of command handlers
+ * which it can call for any parsed Message struct passed to dispatch().
+ */
 class	CommandDispatcher
 {
 	public:

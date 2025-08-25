@@ -1,5 +1,8 @@
 #include "CommandDispatcher.hpp"
 
+/**
+ * CommandDispatcher installs seperate handlers for each command at construction
+ */
 CommandDispatcher::CommandDispatcher(void)
 {
 	_handlers["NICK"] = std::make_unique<NickCommand>();
@@ -14,6 +17,10 @@ CommandDispatcher::CommandDispatcher(void)
 	_handlers["QUIT"] = std::make_unique<QuitCommand>();
 }
 
+/**
+ * Search for an installed command handler for the given message and execute
+ * @param msg	The full command to execute
+ */
 void	CommandDispatcher::dispatch(const std::unique_ptr<Message> &msg)
 {
 	try
