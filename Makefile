@@ -7,7 +7,8 @@ SRC    := \
 		RecvParser.cpp \
 		Client.cpp \
 		Command.cpp \
-		CommandDispatcher.cpp
+		CommandDispatcher.cpp \
+		Handler.cpp
 SRCS	:= $(addprefix src/, $(SRC))
 OBJS    := $(SRCS:.cpp=.o)
 DEPS    := $(OBJS:.o=.d)
