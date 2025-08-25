@@ -1,0 +1,25 @@
+#pragma once
+#include <memory>
+#include <unordered_map>
+#include <exception>
+#include <iostream>
+#include "Command.hpp"
+#include "Message.hpp"
+
+/**
+ * @class	CommandDispatcher
+ * @brief	A class for executing commands received from parser
+ *
+ * CommandDispatcher contains an unordered_map (dictionary) of command handlers
+ * which it can call for any parsed Message struct passed to dispatch().
+ */
+class	CommandDispatcher
+{
+	public:
+		CommandDispatcher(void);
+
+		void	dispatch(const std::unique_ptr<Message> &msg);
+
+	private:
+		std::unordered_map<std::string, std::unique_ptr<ICommand>> _handlers;
+};
