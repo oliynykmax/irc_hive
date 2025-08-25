@@ -75,3 +75,9 @@ class	QuitCommand : public ICommand
 	public:
 		void	execute(const Message &msg) override;
 };
+
+class	CapCommand : public ICommand
+{
+	public:
+		void	execute(const Message &msg) override;
+};

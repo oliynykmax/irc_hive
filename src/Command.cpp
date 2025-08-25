@@ -109,3 +109,26 @@ void QuitCommand::execute(const Message &msg)
 		std::cout << " " << param;
 	std::cout << std::endl;
 }
+
+void CapCommand::execute(const Message &msg)
+{
+	if (msg.params.empty())
+		throw (std::runtime_error("461 CAP :Not enough parameters"));
+	if (msg.params[0] == "LS")
+	{
+		std::cout << ":server.name CAP * LS :" << std::endl;
+	}
+	else if (msg.params[0] == "END")
+	{
+		std::cout << "Received END, continue..." << std::endl;
+	}
+	else
+		throw (std::runtime_error("410 CAP :Unsupported subcommand"));
+	std::cout << "Executed CAP command with ";
+	if (msg.prefix)
+		std::cout << "prefix: " << *msg.prefix << ", ";
+	std::cout << "params:";
+	for (auto param : msg.params)
+		std::cout << " " << param;
+	std::cout << std::endl;
+}
