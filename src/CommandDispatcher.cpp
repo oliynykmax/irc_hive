@@ -15,6 +15,7 @@ CommandDispatcher::CommandDispatcher(void)
 	_handlers["TOPIC"] = std::make_unique<TopicCommand>();
 	_handlers["MODE"] = std::make_unique<ModeCommand>();
 	_handlers["QUIT"] = std::make_unique<QuitCommand>();
+	_handlers["CAP"] = std::make_unique<CapCommand>();
 }
 
 /**
