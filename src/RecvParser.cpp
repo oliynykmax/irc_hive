@@ -1,14 +1,7 @@
 #include "RecvParser.hpp"
 
-std::ostream	&operator<<(std::ostream &os, const Message &msg)
-{
-	if (msg.prefix)
-		os << "Prefix: " << *(msg.prefix) << " ";
-	os << "Command: " << msg.command << ", Params: ";
-	for (auto param : msg.params)
-		os << param;
-	return (os);
-}
+RecvParser::RecvParser(std::queue<std::unique_ptr<Message>> &msg_queue)
+	: _output(msg_queue){}
 
 /**
  *	Feed the recv() buffer into std::string buffer
@@ -50,7 +43,7 @@ void	RecvParser::_normalizeNewLines(void)
 }
 
 /**
- *	Parse the internal buffer for commands.
+ *	Parse the internal buffer into the output queue.
  *	Newlines are \r\n as per IRC protocol.
  */
 void	RecvParser::_parseBuffer(void)
@@ -63,11 +56,11 @@ void	RecvParser::_parseBuffer(void)
 		try
 		{
 			Message command = _parseMessage(line);
-			_handle(command);
+			_output.push(std::make_unique<Message>(std::move(command)));
 		}
 		catch (std::exception &e)
 		{
-			std::cerr << "Parsing error: " << e.what();
+			std::cerr << "Recv parsing error: " << e.what() << std::endl;
 		}
 	}
 }
@@ -80,16 +73,16 @@ Message	RecvParser::_parseMessage(const std::string &msg)
 	Message ret;
 
 	std::string line = msg;
-	auto end = line.find_last_not_of('\r');
+	auto end = line.find_last_not_of("\r\n");
 	if (end != std::string::npos)
-		line = line.substr(0, end);
-
+		line = line.erase(end + 1);
 	std::istringstream line_stream(line);
 	std::string	token;
 
 	if (line[0] == ':')
 	{
-		line_stream >> token;
+		if (!(line_stream >> token))
+			throw (std::runtime_error("Malformed prefix"));
 		ret.prefix = token.substr(1);
 	}
 
@@ -112,72 +105,4 @@ Message	RecvParser::_parseMessage(const std::string &msg)
 			ret.params.push_back(token);
 	}
 	return (ret);
-}
-
-/**
- *	Handle the parsed line
- *	@param	msg	The line to handle
- */
-void	RecvParser::_handle(const Message &msg)
-{
-	auto hash = [](const std::string &cmd)
-	{
-		if (cmd.compare(0, 4, "NICK") == 0)
-			return (NICK);
-		if (cmd.compare(0, 4, "USER") == 0)
-			return (USER);
-		if (cmd.compare(0, 4, "JOIN") == 0)
-			return (JOIN);
-		if (cmd.compare(0, 4, "PART") == 0)
-			return (PART);
-		if (cmd.compare(0, 7, "PRIVMSG") == 0)
-			return (PRIVMSG);
-		if (cmd.compare(0, 4, "KICK") == 0)
-			return (KICK);
-		if (cmd.compare(0, 6, "INVITE") == 0)
-			return (INVITE);
-		if (cmd.compare(0, 5, "TOPIC") == 0)
-			return (TOPIC);
-		if (cmd.compare(0, 4, "QUIT") == 0)
-			return (QUIT);
-		if (cmd.compare(0, 4, "MODE") == 0)
-			return (MODE);
-		return (ERROR);
-	};
-	std::cout << "Received: ";
-	switch (hash(msg.command))
-	{
-		case NICK:
-			std::cout << msg << std::endl;
-			break ;
-		case USER:
-			std::cout << msg << std::endl;
-			break ;
-		case JOIN:
-			std::cout << msg << std::endl;
-			break ;
-		case PART:
-			std::cout << msg << std::endl;
-			break ;
-		case PRIVMSG:
-			std::cout << msg << std::endl;
-			break ;
-		case KICK:
-			std::cout << msg << std::endl;
-			break ;
-		case INVITE:
-			std::cout << msg << std::endl;
-			break ;
-		case TOPIC:
-			std::cout << msg << std::endl;
-			break ;
-		case QUIT:
-			std::cout << msg << std::endl;
-			break ;
-		case MODE:
-			std::cout << msg << std::endl;
-			break ;
-		default:
-			std::cout << "bad/unsupported command" << std::endl;
-	}
 }
