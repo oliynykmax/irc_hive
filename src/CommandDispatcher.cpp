@@ -22,12 +22,12 @@ CommandDispatcher::CommandDispatcher(void)
  * Search for an installed command handler for the given message and execute
  * @param msg	The full command to execute
  */
-void	CommandDispatcher::dispatch(const std::unique_ptr<Message> &msg)
+void	CommandDispatcher::dispatch(const std::unique_ptr<Message> &msg, int fd)
 {
 	try
 	{
 		if (auto cmd = _handlers.find(msg->command); cmd != _handlers.end())
-			cmd->second->execute(*msg);
+			cmd->second->execute(*msg, fd);
 		else
 			std::cerr << "Unsupported command: " << msg->command << std::endl;
 	}
