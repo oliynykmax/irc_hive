@@ -1,6 +1,8 @@
 #pragma once
 #include "Message.hpp"
 #include <iostream>
+#include <string>
+#include <regex>
 
 /**
  * @class	ICommand
