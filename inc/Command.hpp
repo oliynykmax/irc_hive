@@ -83,3 +83,15 @@ class	CapCommand : public ICommand
 	public:
 		void	execute(const Message &msg, int fd) override;
 };
+
+class	WhoisCommand : public ICommand
+{
+	public:
+		void	execute(const Message &msg, int fd) override;
+};
+
+class	PingCommand : public ICommand
+{
+	public:
+		void	execute(const Message &msg, int fd) override;
+};
