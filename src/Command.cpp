@@ -84,7 +84,7 @@ void CapCommand::execute(const Message &msg, int fd)
 		tempClientSend("461 CAP :Not enough parameters", fd);
 	if (msg.params[0] == "LS")
 	{
-		tempClientSend(":server.name CAP * LS :", fd);
+		tempClientSend(":ircserv CAP * LS :", fd);
 	}
 	else if (msg.params[0] == "END")
 	{
