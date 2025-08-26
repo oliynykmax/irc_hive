@@ -1,10 +1,6 @@
 #include "Server.hpp"
-#include <cstdint>
-#include <stdexcept>
-
 
 Server::Server(std::string passwd) :
-_clients(),
 _fd(epoll_create1(0)),
 _password(passwd)
 {
@@ -34,6 +30,7 @@ void Server::_reloadHandler(Client &client) const {
 	struct epoll_event ev{};
 	ev.data.fd = client._fd;
 	bool firstEvent = true;
+
 	for (uint32_t evt: eventTypes) {
 		if (client.handler(evt)) {
 			event = evt;
@@ -49,11 +46,11 @@ void Server::_reloadHandler(Client &client) const {
 
 		ev.events = event;
 
-		if (client.isInitialized) {
+		if (client._initialized) {
 			epoll_ctl(this->_fd, EPOLL_CTL_MOD, client._fd, &ev);
 		} else {
 			epoll_ctl(this->_fd, EPOLL_CTL_ADD, client._fd, &ev);
-			client.isInitialized = true;
+			client._initialized = true;
 		}
 	}
 }
@@ -61,20 +58,19 @@ void Server::_reloadHandler(Client &client) const {
 void Server::poll(int tout) {
 	int nbrEvents = epoll_wait(_fd, &_events[0], _max_events, tout);
 
-	while (nbrEvents-- > 0) {
-		for (int idx = 0; idx < _max_events; idx++) {
-			uint32_t events = _events[idx].events;
-		 	int fd = _events[idx].data.fd;
-			for (uint32_t eventType : eventTypes) {
-				if (_clients.count(fd) == 0)
-					return ;
-				if (_clients.at(fd).handler(eventType))
-					_clients.at(fd).getHandler(eventType)(fd);
-			}
+	for (int idx = 0; idx < nbrEvents; idx++) {
+		uint32_t event = _events[idx].events;
+	 	int fd = _events[idx].data.fd;
 
-		if (events & (EPOLLRDHUP & EPOLLHUP))
-			removeClient(_clients.at(fd));
+		for (uint32_t type : eventTypes) {
+			if (_clients.count(fd) == 0)
+				return ;
+			if (_clients.at(fd).handler(type & event))
+				_clients.at(fd).getHandler(type & event)(fd);
 		}
+
+		if (event & (EPOLLRDHUP & EPOLLHUP))
+			removeClient(_clients.at(fd));
 	}
 }
 
