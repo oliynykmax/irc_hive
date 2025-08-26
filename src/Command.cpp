@@ -2,7 +2,7 @@
 
 static void debugLog(const Message &msg)
 {
-	std::cout << "Executed " << msg.command << " command with ";
+	std::cout << "[DEBUG] Executed " << msg.command << " command with ";
 	if (msg.prefix)
 		std::cout << "prefix: " << *msg.prefix << ", ";
 	std::cout << "params:";
@@ -30,28 +30,41 @@ void NickCommand::execute(const Message &msg, int fd)
 
 	if (newNick.size() < 1 || newNick.size() > 9)
 	{
-		std::cerr << "Nickname must be 1-9 characters long" << std::endl;
+		tempClientSend("432 :Erroneous nickname", fd);
 		return ;
 	}
 
-	std::regex nickname_regex("^[A-Za-z][A-Za-z0-9-_]*&");
+	std::regex nickname_regex("^[A-Za-z][A-Za-z0-9-_]*");
 	if (!std::regex_match(newNick, nickname_regex))
 	{
-		std::cerr << "Invalid characters in nickname" << std::endl;
+		tempClientSend("432 :Erroneous nickname", fd);
 		return ;
 	}
 
 	// check for collissions with existing nicknames
 	// -> handle it
+	//		tempClientSend("433 :Nickname is already in use", fd);
 	// if changing from a previous nickname, broadcast change to others
-	std::cout << "Set client nickname to: " << newNick << std::endl;
+	std::cout << "[DEBUG] Set client nickname to: " << newNick << std::endl;
 }
 
 void UserCommand::execute(const Message &msg, int fd)
 {
-	(void)fd;
 	debugLog(msg);
+	if (msg.params.size() < 4)
+	{
+		tempClientSend("461 :Missing parameters", fd);
+		return ;
+	}
+	// if registered
+	// tempClientSend("462 :Already registered", fd);
+	// register
+	tempClientSend("001 yournick :Welcome to IRC network", fd);
+	tempClientSend("002 yournick :Your host is hostname", fd);
+	tempClientSend("003 yournick :This server was created moments ago", fd);
+	tempClientSend("004 yournick :Your info is this and that", fd);
 }
+
 
 void JoinCommand::execute(const Message &msg, int fd)
 {
@@ -98,7 +111,13 @@ void ModeCommand::execute(const Message &msg, int fd)
 void QuitCommand::execute(const Message &msg, int fd)
 {
 	(void)fd;
-	debugLog(msg);
+	std::cout << "[DEBUG] Broadcasting to all user\'s channels:" << std::endl;
+	std::cout << "user QUIT: ";
+	if (!msg.params.empty())
+		std::cout << msg.params[0] << std::endl;
+	else
+		std::cout << "Client Quit" << std::endl;
+	std::cout << "[DEBUG] Removing user from channels ETC ETC" << std::endl;
 }
 
 void CapCommand::execute(const Message &msg, int fd)
@@ -111,8 +130,20 @@ void CapCommand::execute(const Message &msg, int fd)
 	}
 	else if (msg.params[0] == "END")
 	{
-		std::cout << "Received END, continue..." << std::endl; // continue
+		std::cout << "[DEBUG] Received CAP END, continue..." << std::endl; // continue
 	}
 	else
 		tempClientSend("410 CAP :Unsupported subcommand", fd);
+}
+
+void WhoisCommand::execute(const Message &msg, int fd)
+{
+	(void)fd;
+	debugLog(msg);
+}
+
+void PingCommand::execute(const Message &msg, int fd)
+{
+	(void)fd;
+	debugLog(msg);
 }
