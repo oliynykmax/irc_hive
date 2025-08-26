@@ -3,7 +3,11 @@
 #include <stdexcept>
 
 
-Server::Server(std::string passwd) :  _fd(epoll_create1(0)), _password(passwd) {
+Server::Server(std::string passwd) :
+_clients(),
+_fd(epoll_create1(0)),
+_password(passwd)
+{
 	if(_fd == -1)
 		throw std::runtime_error("Server::Server: ERROR - Failed to create epoll file");
 
@@ -56,20 +60,21 @@ void Server::_reloadHandler(Client &client) const {
 
 void Server::poll(int tout) {
 	int nbrEvents = epoll_wait(_fd, &_events[0], _max_events, tout);
-	(void)nbrEvents;
 
-	for (int idx = 0; idx < _max_events; idx++) {
-		uint32_t events = _events[idx].events;
-	 	int fd = _events[idx].data.fd;
-		for (uint32_t eventType : eventTypes) {
-			if (_clients.count(fd) == 0)
-				return ;
-			if (_clients.at(fd).handler(eventType))
-				_clients.at(fd).getHandler(eventType)(fd);
+	while (nbrEvents-- > 0) {
+		for (int idx = 0; idx < _max_events; idx++) {
+			uint32_t events = _events[idx].events;
+		 	int fd = _events[idx].data.fd;
+			for (uint32_t eventType : eventTypes) {
+				if (_clients.count(fd) == 0)
+					return ;
+				if (_clients.at(fd).handler(eventType))
+					_clients.at(fd).getHandler(eventType)(fd);
+			}
+
+		if (events & (EPOLLRDHUP & EPOLLHUP))
+			removeClient(_clients.at(fd));
 		}
-
-	if (events & (EPOLLRDHUP & EPOLLHUP))
-		removeClient(_clients.at(fd));
 	}
 }
 
