@@ -20,7 +20,6 @@ void Handler::clientWrite(int fd) {
 		dispatcher.dispatch(msg, fd);
 		msg_queue.pop();
 	}
-	send(fd, "Message received\n", 18, 0);
 }
 
 void Handler::clientDisconnect(int fd) {
