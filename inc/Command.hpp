@@ -1,8 +1,11 @@
 #pragma once
 #include "Message.hpp"
+#include "Server.hpp"
 #include <iostream>
 #include <string>
 #include <regex>
+
+extern Server *irc;
 
 /**
  * @class	ICommand
