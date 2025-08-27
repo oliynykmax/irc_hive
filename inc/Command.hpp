@@ -5,6 +5,13 @@
 #include <string>
 #include <regex>
 
+struct	ModeChange
+{
+	char action;
+	char flag;
+	std::string parameter;
+};
+
 extern Server *irc;
 
 /**
