@@ -135,20 +135,76 @@ void TopicCommand::execute(const Message &msg, int fd)
 
 void ModeCommand::execute(const Message &msg, int fd)
 {
-	(void)fd;
-	debugLog(msg);
+	auto channel = [&]()
+	{
+		// if user not operator on channel;
+		// tempClientSend("482 :Channel operator privileges required", fd);
+		if (msg.params.size() < 2)
+		{
+			tempClientSend("461 :Need more parameters", fd);
+			return ;
+		}
+		
+		if (msg.params[1].size() != 2
+				&& msg.params[1][0] != '-' && msg.params[1][0] != '+')
+		{
+			tempClientSend("472 :Unknown mode", fd);
+			return ;
+		}
+		std::string supported = "itkol";
+		if (supported.find(msg.params[1][1]) == std::string::npos)
+		{
+			tempClientSend("472 :Unknown mode", fd);
+			return ;
+		}
+		std::string requireParam = "kl";
+		if (requireParam.find(msg.params[1][1]) != std::string::npos
+				&& msg.params[1][0] == '+'
+				&& msg.params.size() < 3)
+		{
+			tempClientSend("461 :Need more parameters", fd);
+			return ;
+		}
+		std::cout << "[DEBUG] Set channel modes " << msg.params[1] << " for " << msg.params[0] << std::endl;
+	};
+
+	auto user = [&]()
+	{
+		// if msg.params[0] != calling user
+		// tempClientSend("502 :Users don't match", fd);
+		if (msg.params.size() < 2)
+		{
+			std::cout << "[DEBUG] Sending back user modes for: " << msg.params[0] << std::endl;
+			return ;
+		}
+		if (msg.params[1] == "+i")
+		{
+			std::cout << "[DEBUG] Set user " << msg.params[0] << " invisible" << std::endl;
+			return ;
+		}
+		tempClientSend("472 :Unknown mode", fd);
+	};
+
+	if (msg.params.size() < 1)
+	{
+		tempClientSend("461 :Need more parameters", fd);
+		return ;
+	}
+	if (msg.params[0][0] == '#')
+		channel();
+	else
+		user();
 }
 
 void QuitCommand::execute(const Message &msg, int fd)
 {
-	(void)fd;
 	std::cout << "[DEBUG] Broadcasting to all user\'s channels:" << std::endl;
-	std::cout << "user QUIT: ";
+	std::cout << "user " << fd << " QUIT: ";
 	if (!msg.params.empty())
 		std::cout << msg.params[0] << std::endl;
 	else
 		std::cout << "Client Quit" << std::endl;
-	std::cout << "[DEBUG] Removing user from channels ETC ETC" << std::endl;
+	std::cout << "[DEBUG] Removing user " << fd << " from channels ETC ETC" << std::endl;
 }
 
 void CapCommand::execute(const Message &msg, int fd)
