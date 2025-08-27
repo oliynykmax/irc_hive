@@ -2,6 +2,7 @@
 #include <array>
 #include <vector>
 #include <string>
+#include <future>
 #include <cstdint>
 #include <fcntl.h>
 #include <unistd.h>
