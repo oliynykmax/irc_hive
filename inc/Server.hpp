@@ -23,13 +23,14 @@ class Server {
 	public:
 		Server(std::string passwd = "");
 		virtual ~Server();
-		void addClient(const Client client);
-		void removeClient(const Client client);
+		void addClient(Client client);
+		void removeClient(const int fd);
 		void registerHandler(const int fd, uint32_t eventType, std::function<void(int)> handler);
 		void addOwnSocket(int sockfd);
 
 		void poll(int tout = -1);
 		const std::unordered_map<int, class Client>& getClients() const;
+		Client& getClient(int fd);
 		int getServerFd() const;
 
 };
