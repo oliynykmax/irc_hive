@@ -64,7 +64,7 @@ void UserCommand::execute(const Message &msg, int fd)
 	// if registered
 	//	sendResponse("462 :Already registered", fd);
 	//	return ;
-	
+
 	// register
 	// if registration successfull ->
 	sendResponse("001 yournick :Welcome to IRC network", fd);
@@ -239,7 +239,7 @@ void ModeCommand::execute(const Message &msg, int fd)
 			sendResponse("461 :Need more parameters", fd);
 			return ;
 		}
-		
+
 		if (msg.params[1].size() != 2
 				&& msg.params[1][0] != '-' && msg.params[1][0] != '+')
 		{
@@ -350,22 +350,10 @@ void PingCommand::execute(const Message &msg, int fd)
 
 void PassCommand::execute(const Message &msg, int fd)
 {
-	/*
-	if (!server.password.empty())
-	{
-		if (msg.params.empty())
-		{
-			sendResponse("464 :Incorrect password", fd);
-			close the connection;
-			return ;
-		}
-		if (!server.testPassword(msg.params[0]))
-		{
-			sendResponse("464 :Incorrect password", fd);
-			close the connection;
-		}
-	}
-	*/
+	if (irc->checkPassword(msg.params[0]))
+		return ;
+	sendResponse("464 :Incorrect password", fd);
+	irc->removeClient(irc->getClients().at(fd));
 }
 
 void UnknownCommand::execute(const Message &msg, int fd)
