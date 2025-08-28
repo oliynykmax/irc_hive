@@ -13,8 +13,6 @@ _password(passwd)
 Server::~Server() { close(_fd); }
 
 bool Server::checkPassword(std::string password) const {
-	if(password.empty())
-		return true;
 	return _password == password;
 }
 
