@@ -298,6 +298,7 @@ void QuitCommand::execute(const Message &msg, int fd)
 		std::cout << msg.params[0] << std::endl;
 	else
 		std::cout << "Client Quit" << std::endl;
+	irc->removeClient(irc->getClients().at(fd));
 	std::cout << "[DEBUG] Removing user " << fd << " from channels ETC ETC" << std::endl;
 }
 
@@ -349,11 +350,10 @@ void PingCommand::execute(const Message &msg, int fd)
 
 void PassCommand::execute(const Message &msg, int fd)
 {
-	if (irc->checkPassword(msg.params[0]))
+	if ((!msg.params.empty() && irc->checkPassword(msg.params[0])) || irc->checkPassword())
 		return ;
 	sendResponse("464 :Incorrect password", fd);
 	irc->removeClient(irc->getClients().at(fd));
-
 }
 
 void UnknownCommand::execute(const Message &msg, int fd)
