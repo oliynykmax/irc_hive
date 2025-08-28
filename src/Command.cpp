@@ -2,7 +2,7 @@
 
 static void debugLog(const Message &msg)
 {
-	std::cout << "[DEBUG] Executed " << msg.command << " command with ";
+	std::cout << "[DEBUG] Received unsupported command " << msg.command << " with ";
 	if (msg.prefix)
 		std::cout << "prefix: " << *msg.prefix << ", ";
 	std::cout << "params:";
@@ -11,7 +11,6 @@ static void debugLog(const Message &msg)
 	std::cout << std::endl;
 }
 
-#include <sys/socket.h>
 static void	sendResponse(std::string message, int fd)
 {
 	message.append("\r\n");
@@ -74,17 +73,61 @@ void UserCommand::execute(const Message &msg, int fd)
 	sendResponse("004 yournick :Your info is " + msg.params[0] + " " + msg.params[3], fd);
 }
 
-
 void JoinCommand::execute(const Message &msg, int fd)
 {
-	(void)fd;
-	debugLog(msg);
+	if (msg.params.size() < 1)
+	{
+		sendResponse("461 :Missing parameters", fd);
+		return ;
+	}
+	std::regex channel_regex("^[#][A-Za-z0-9-_]{1,50}*");
+	if (!std::regex_match(msg.params[0], channel_regex))
+	{
+		sendResponse("403 <nick> " + msg.params[0] + " :No such channel", fd);
+		return ;
+	}
+	// if user is on the channel already
+	//	sendResponse("443 :You are already on the channel", fd);
+	// if user is on too many channels i guess?
+	//	sendResponse("405 :You have joined too many channels", fd);
+	// if channel has limit and is full
+	//	sendResponse("471 :Cannot join channel (Channel is full)", fd);
+	// if channel is invite only
+	//	sendResponse("473 :Cannot join an invite only channel", fd);
+	// if channel has password and you put in a wrong one
+	//	sendResponse("475 :Incorrect channel key", fd);
+
+	// update client & server
+	// sendResponse("331 <nick> <channel> :No topic is set", fd);
+	// sendResponse("332 <nick> <channel> :<topic>", fd);
+	// sendResponse("353 <nick> @ <channel> :<nick1> <nick2> <nick3>...", fd);
+	// sendResponse("366 <nick> <channel> :End of NAMES list", fd);
+	std::cout << "[DEBUG] User " << fd << " joined/created channel " << msg.params[0] << std::endl;
+	// for (client : channel.clients())
+	//	sendResponse(":<nick>!<user>@<host> JOIN :<channel>", client.fd());
 }
 
 void PartCommand::execute(const Message &msg, int fd)
 {
-	(void)fd;
-	debugLog(msg);
+	if (msg.params.size() < 1)
+	{
+		sendResponse("461 :Missing parameters", fd);
+		return ;
+	}
+	std::regex channel_regex("^[#][A-Za-z0-9-_]{1,50}*");
+	if (!std::regex_match(msg.params[0], channel_regex))
+	{
+		sendResponse("403 <nick> " + msg.params[0] + " :No such channel", fd);
+		return ;
+	}
+	// if user not on channel
+	//	sendResponse("422 :You're not on that channel", fd);
+
+	// success
+	// update client & server
+	std::cout << "[DEBUG] User " << fd << " left channel " << msg.params[0] << std::endl;
+	// for (client : channel.clients())
+	//	sendResponse(":<nick>!<user>@<host> PART <channel> :<message>", fd);
 }
 
 void PrivmsgCommand::execute(const Message &msg, int fd)
@@ -117,20 +160,72 @@ void PrivmsgCommand::execute(const Message &msg, int fd)
 
 void KickCommand::execute(const Message &msg, int fd)
 {
-	(void)fd;
-	debugLog(msg);
+	if (msg.params.size() < 2)
+	{
+		sendResponse("461 :Missing parameters", fd);
+		return ;
+	}
+	// if channel doesn't exist
+	//	sendResponse("403 :No such channel", fd);
+	// if user not on channel
+	//	sendResponse("442 :You're not on that channel", fd);
+	// if sender not channel op
+	//	sendResponse("482 :You're not a channel operator", fd);
+	// if target not on channel
+	//	sendResponse("441 :They aren't on that channel", fd);
+	// if target is op
+	//	sendResponse("482 :You can't kick an operator", fd);
+
+	// success
+	//	sendResponse("KICK <channel> <target> :message", fd);
+	std::cout << "[DEBUG] User " << fd << " succesfully kicked ";
+	std::cout << msg.params[0] <<  " from " << msg.params[1] << std::endl;
 }
 
 void InviteCommand::execute(const Message &msg, int fd)
 {
-	(void)fd;
-	debugLog(msg);
+	if (msg.params.size() < 2)
+	{
+		sendResponse("461 :Missing parameters", fd);
+		return ;
+	}
+	// if nick not recognized
+	//	sendResponse("401 :No such nick", fd);
+	// if channel not found
+	//	sendResponse("403 :No such channel", fd);
+	// if not channel op
+	//	sendResponse("482 :You're not a channel operator", fd);
+	// if user already on channel
+	//	sendResponse("443 :User already on channel", fd);
+	// if inviting yourself
+	//	sendResponse("443 :You cannot invite yourself", fd);
+	// success
+	//	sendResponse("341 :Invitation send", fd);
+	std::cout << "[DEBUG] User " << fd << " succesfully invited ";
+	std::cout << msg.params[0] << " to " << msg.params[1] << std::endl;
 }
 
 void TopicCommand::execute(const Message &msg, int fd)
 {
-	(void)fd;
-	debugLog(msg);
+	if (msg.params.empty())
+	{
+		sendResponse("461 :Missing parameters", fd);
+		return ;
+	}
+	// if channel doesn't exist
+	//  sendResponse("403 :Channel doesn't exist", fd);
+	// if user not on channel
+	//  sendResponse("442 :You're not on the channel", fd);
+	if (msg.params.size() < 2)
+	{
+		// sendResponse("332 <nick> <channel> :Current topic: <topic>", fd);
+		// sendResponse("331 <nck> <channel> :No topic is set", fd);
+		std::cout << "[DEBUG] Retrieving topic for " << msg.params[0] << std::endl;
+		return ;
+	}
+	// if channel has +t and not operator
+	//  sendResponse("482 :You're not a channel operator", fd);
+	std::cout << "[DEBUG] Setting topic \"" << msg.params[1] << "\" for " << msg.params[0] << std::endl;
 }
 
 void ModeCommand::execute(const Message &msg, int fd)
@@ -242,8 +337,6 @@ void WhoisCommand::execute(const Message &msg, int fd)
 	// sendResponse("318 nick :End of WHOIS list", fd)
 }
 
-// possible to implement a timeout mechanic when a client doesn't send PING
-// for a while
 void PingCommand::execute(const Message &msg, int fd)
 {
 	if (msg.params.empty())
@@ -253,4 +346,10 @@ void PingCommand::execute(const Message &msg, int fd)
 	}
 	std::string response = "PONG ircserv :" + msg.params[0];
 	sendResponse(response, fd);
+}
+
+void UnknownCommand::execute(const Message &msg, int fd)
+{
+	debugLog(msg);
+	sendResponse("421 :Unknown command", fd);
 }

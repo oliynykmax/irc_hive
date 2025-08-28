@@ -22,4 +22,5 @@ class	CommandDispatcher
 
 	private:
 		std::unordered_map<std::string, std::unique_ptr<ICommand>> _handlers;
+		UnknownCommand _default;
 };
