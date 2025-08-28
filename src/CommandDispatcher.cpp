@@ -16,6 +16,8 @@ CommandDispatcher::CommandDispatcher(void)
 	_handlers["MODE"] = std::make_unique<ModeCommand>();
 	_handlers["QUIT"] = std::make_unique<QuitCommand>();
 	_handlers["CAP"] = std::make_unique<CapCommand>();
+	_handlers["WHOIS"] = std::make_unique<WhoisCommand>();
+	_handlers["PING"] = std::make_unique<PingCommand>();
 }
 
 /**
