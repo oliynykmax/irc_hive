@@ -1,21 +1,23 @@
 #pragma once
 
-#include "Client.hpp"
 #include "Channel.hpp"
 #include <string>
+#include <vector>
 
 using std::string;
+using std::vector;
+
+class Channel;
 
 class User {
 	private:
-		Client *_cli;
-		Channel *_chan = nullptr;
+		vector<Channel*> _channels;
 		string _nick = "";
 		string _user = "";
 	public:
-		explicit User(Client *cli);
 		void join(Channel *chan);
 		void setNick(string name);
 		void setUser(string name);
-  		unsigned long getID() const;
+		string getNick(void) const;
+		string getUser(void) const;
 };
