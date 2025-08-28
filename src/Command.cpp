@@ -64,7 +64,6 @@ void UserCommand::execute(const Message &msg, int fd)
 	// if registered
 	//	sendResponse("462 :Already registered", fd);
 	//	return ;
-
 	// register
 	// if registration successfull ->
 	sendResponse("001 yournick :Welcome to IRC network", fd);
@@ -354,6 +353,7 @@ void PassCommand::execute(const Message &msg, int fd)
 		return ;
 	sendResponse("464 :Incorrect password", fd);
 	irc->removeClient(irc->getClients().at(fd));
+
 }
 
 void UnknownCommand::execute(const Message &msg, int fd)
