@@ -43,10 +43,13 @@ void NickCommand::execute(const Message &msg, int fd)
 	for (auto client : irc->getClients())
 	{
 		std::cout << "[DEBUG] Checking nick collission with client: " << client.first << std::endl;
+		if (client.second.getUser()->getNick() == newNick)
+		{
+			sendResponse("433 :Nickname is already in use", fd);
+			return ;
+		}
 	}
-	// handle collission
-	//		sendResponse("433 :Nickname is already in use", fd);
-	// if changing from a previous nickname, broadcast change to others
+	irc->getClient(fd).getUser()->setNick(newNick);
 	std::cout << "[DEBUG] Set client nickname to: " << newNick << std::endl;
 }
 
@@ -65,7 +68,7 @@ void UserCommand::execute(const Message &msg, int fd)
 	// if registered
 	//	sendResponse("462 :Already registered", fd);
 	//	return ;
-	
+
 	// register
 	// if registration successfull ->
 	sendResponse("001 yournick :Welcome to IRC network", fd);
@@ -144,7 +147,7 @@ void ModeCommand::execute(const Message &msg, int fd)
 			sendResponse("461 :Need more parameters", fd);
 			return ;
 		}
-		
+
 		if (msg.params[1].size() != 2
 				&& msg.params[1][0] != '-' && msg.params[1][0] != '+')
 		{
