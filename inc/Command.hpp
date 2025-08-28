@@ -1,6 +1,7 @@
 #pragma once
 #include "Message.hpp"
 #include "Server.hpp"
+#include <sys/socket.h>
 #include <iostream>
 #include <string>
 #include <regex>
@@ -94,6 +95,12 @@ class	WhoisCommand : public ICommand
 };
 
 class	PingCommand : public ICommand
+{
+	public:
+		void	execute(const Message &msg, int fd) override;
+};
+
+class	UnknownCommand : public ICommand
 {
 	public:
 		void	execute(const Message &msg, int fd) override;
