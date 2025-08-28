@@ -31,7 +31,7 @@ void	CommandDispatcher::dispatch(const std::unique_ptr<Message> &msg, int fd)
 		if (auto cmd = _handlers.find(msg->command); cmd != _handlers.end())
 			cmd->second->execute(*msg, fd);
 		else
-			std::cerr << "Unsupported command: " << msg->command << std::endl;
+			_default.execute(*msg, fd);
 	}
 	catch (std::exception &e)
 	{
