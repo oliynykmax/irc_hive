@@ -100,6 +100,12 @@ class	PingCommand : public ICommand
 		void	execute(const Message &msg, int fd) override;
 };
 
+class	PassCommand : public ICommand
+{
+	public:
+		void	execute(const Message &msg, int fd) override;
+};
+
 class	UnknownCommand : public ICommand
 {
 	public:
