@@ -28,14 +28,9 @@ class Server {
 		void registerHandler(const int fd, uint32_t eventType, std::function<void(int)> handler);
 		void addOwnSocket(int sockfd);
 		/*
-		 * @brief Is there a password
-		 * @return true if there is a password, false otherwise
-		 */
-		bool isProtected(void) const;
-		/*
 		 * @brief Compare password to servers
 		* @param password the user provided PASS
-		* @return true if match, false if not
+		* @return true if match or empty, false if neither
 		 */
 		bool checkPassword(std::string password) const;
 		void poll(int tout = -1);

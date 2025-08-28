@@ -12,11 +12,9 @@ _password(passwd)
 
 Server::~Server() { close(_fd); }
 
-bool Server::isProtected(void) const {
-	return !_password.empty();
-}
-
 bool Server::checkPassword(std::string password) const {
+	if(_password.empty())
+		return true;
 	return _password == password;
 }
 
