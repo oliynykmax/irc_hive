@@ -348,6 +348,26 @@ void PingCommand::execute(const Message &msg, int fd)
 	sendResponse(response, fd);
 }
 
+void PassCommand::execute(const Message &msg, int fd)
+{
+	/*
+	if (!server.password.empty())
+	{
+		if (msg.params.empty())
+		{
+			sendResponse("464 :Incorrect password", fd);
+			close the connection;
+			return ;
+		}
+		if (!server.testPassword(msg.params[0]))
+		{
+			sendResponse("464 :Incorrect password", fd);
+			close the connection;
+		}
+	}
+	*/
+}
+
 void UnknownCommand::execute(const Message &msg, int fd)
 {
 	debugLog(msg);
