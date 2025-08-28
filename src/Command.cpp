@@ -12,7 +12,7 @@ static void debugLog(const Message &msg)
 }
 
 #include <sys/socket.h>
-static void	tempClientSend(std::string message, int fd)
+static void	sendResponse(std::string message, int fd)
 {
 	message.append("\r\n");
 	send(fd, message.c_str(), message.size(), 0);
@@ -22,7 +22,7 @@ void NickCommand::execute(const Message &msg, int fd)
 {
 	if (msg.params.empty())
 	{
-		tempClientSend("431 :No nickname given", fd);
+		sendResponse("431 :No nickname given", fd);
 		return ;
 	}
 
@@ -30,14 +30,14 @@ void NickCommand::execute(const Message &msg, int fd)
 
 	if (newNick.size() < 1 || newNick.size() > 9)
 	{
-		tempClientSend("432 :Erroneous nickname", fd);
+		sendResponse("432 :Erroneous nickname", fd);
 		return ;
 	}
 
 	std::regex nickname_regex("^[A-Za-z][A-Za-z0-9-_]*");
 	if (!std::regex_match(newNick, nickname_regex))
 	{
-		tempClientSend("432 :Erroneous nickname", fd);
+		sendResponse("432 :Erroneous nickname", fd);
 		return ;
 	}
 	for (auto client : irc->getClients())
@@ -45,7 +45,7 @@ void NickCommand::execute(const Message &msg, int fd)
 		std::cout << "[DEBUG] Checking nick collission with client: " << client.first << std::endl;
 	}
 	// handle collission
-	//		tempClientSend("433 :Nickname is already in use", fd);
+	//		sendResponse("433 :Nickname is already in use", fd);
 	// if changing from a previous nickname, broadcast change to others
 	std::cout << "[DEBUG] Set client nickname to: " << newNick << std::endl;
 }
@@ -54,7 +54,7 @@ void UserCommand::execute(const Message &msg, int fd)
 {
 	if (msg.params.size() < 4)
 	{
-		tempClientSend("461 :Missing parameters", fd);
+		sendResponse("461 :Missing parameters", fd);
 		return ;
 	}
 	std::cout << "[DEBUG] Registered username " << msg.params[0];
@@ -63,15 +63,15 @@ void UserCommand::execute(const Message &msg, int fd)
 	std::cout << "[DEBUG] ignored hostname " << msg.params[1];
 	std::cout << " and servername " << msg.params[2] << std::endl;
 	// if registered
-	//	tempClientSend("462 :Already registered", fd);
+	//	sendResponse("462 :Already registered", fd);
 	//	return ;
 	
 	// register
 	// if registration successfull ->
-	tempClientSend("001 yournick :Welcome to IRC network", fd);
-	tempClientSend("002 yournick :Your host is " + msg.params[1], fd);
-	tempClientSend("003 yournick :This server was created moments ago", fd);
-	tempClientSend("004 yournick :Your info is " + msg.params[0] + " " + msg.params[3], fd);
+	sendResponse("001 yournick :Welcome to IRC network", fd);
+	sendResponse("002 yournick :Your host is " + msg.params[1], fd);
+	sendResponse("003 yournick :This server was created moments ago", fd);
+	sendResponse("004 yournick :Your info is " + msg.params[0] + " " + msg.params[3], fd);
 }
 
 
@@ -91,16 +91,16 @@ void PrivmsgCommand::execute(const Message &msg, int fd)
 {
 	if (msg.params.empty())
 	{
-		tempClientSend("411 :No recipient given", fd);
+		sendResponse("411 :No recipient given", fd);
 		return ;
 	}
 	if (msg.params.size() < 2)
 	{
-		tempClientSend("412 :No text to send", fd);
+		sendResponse("412 :No text to send", fd);
 		return ;
 	}
 	// if client not registered:
-	//  tempClientSend("451 :You have not registered", fd);
+	//  sendResponse("451 :You have not registered", fd);
 	if (msg.params[0][0] == '#')
 	{
 		std::cout << "[DEBUG] Sending message \"" << msg.params[1] << "\" ";
@@ -112,7 +112,7 @@ void PrivmsgCommand::execute(const Message &msg, int fd)
 		std::cout << "to user " << msg.params[0] << " if found" << std::endl;
 	}
 	// if target not found
-	//  tempClientSend("401 :No such nick/channel", fd);
+	//  sendResponse("401 :No such nick/channel", fd);
 }
 
 void KickCommand::execute(const Message &msg, int fd)
@@ -138,23 +138,23 @@ void ModeCommand::execute(const Message &msg, int fd)
 	auto channel = [&]()
 	{
 		// if user not operator on channel;
-		// tempClientSend("482 :Channel operator privileges required", fd);
+		// sendResponse("482 :Channel operator privileges required", fd);
 		if (msg.params.size() < 2)
 		{
-			tempClientSend("461 :Need more parameters", fd);
+			sendResponse("461 :Need more parameters", fd);
 			return ;
 		}
 		
 		if (msg.params[1].size() != 2
 				&& msg.params[1][0] != '-' && msg.params[1][0] != '+')
 		{
-			tempClientSend("472 :Unknown mode", fd);
+			sendResponse("472 :Unknown mode", fd);
 			return ;
 		}
 		std::string supported = "itkol";
 		if (supported.find(msg.params[1][1]) == std::string::npos)
 		{
-			tempClientSend("472 :Unknown mode", fd);
+			sendResponse("472 :Unknown mode", fd);
 			return ;
 		}
 		std::string requireParam = "kl";
@@ -162,7 +162,7 @@ void ModeCommand::execute(const Message &msg, int fd)
 				&& msg.params[1][0] == '+'
 				&& msg.params.size() < 3)
 		{
-			tempClientSend("461 :Need more parameters", fd);
+			sendResponse("461 :Need more parameters", fd);
 			return ;
 		}
 		std::cout << "[DEBUG] Set channel modes " << msg.params[1] << " for " << msg.params[0] << std::endl;
@@ -171,7 +171,7 @@ void ModeCommand::execute(const Message &msg, int fd)
 	auto user = [&]()
 	{
 		// if msg.params[0] != calling user
-		// tempClientSend("502 :Users don't match", fd);
+		// sendResponse("502 :Users don't match", fd);
 		if (msg.params.size() < 2)
 		{
 			std::cout << "[DEBUG] Sending back user modes for: " << msg.params[0] << std::endl;
@@ -182,12 +182,12 @@ void ModeCommand::execute(const Message &msg, int fd)
 			std::cout << "[DEBUG] Set user " << msg.params[0] << " invisible" << std::endl;
 			return ;
 		}
-		tempClientSend("472 :Unknown mode", fd);
+		sendResponse("472 :Unknown mode", fd);
 	};
 
 	if (msg.params.size() < 1)
 	{
-		tempClientSend("461 :Need more parameters", fd);
+		sendResponse("461 :Need more parameters", fd);
 		return ;
 	}
 	if (msg.params[0][0] == '#')
@@ -210,24 +210,24 @@ void QuitCommand::execute(const Message &msg, int fd)
 void CapCommand::execute(const Message &msg, int fd)
 {
 	if (msg.params.empty())
-		tempClientSend("461 CAP :Not enough parameters", fd);
+		sendResponse("461 CAP :Not enough parameters", fd);
 	if (msg.params[0] == "LS")
 	{
-		tempClientSend(":our.host.name CAP * LS :", fd);
+		sendResponse(":our.host.name CAP * LS :", fd);
 	}
 	else if (msg.params[0] == "END")
 	{
 		std::cout << "[DEBUG] Received CAP END, continue..." << std::endl; // continue
 	}
 	else
-		tempClientSend("410 CAP :Unsupported subcommand", fd);
+		sendResponse("410 CAP :Unsupported subcommand", fd);
 }
 
 void WhoisCommand::execute(const Message &msg, int fd)
 {
 	if (msg.params.empty())
 	{
-		tempClientSend("431 :No nickname given", fd);
+		sendResponse("431 :No nickname given", fd);
 		return ;
 	}
 	std::cout << "[DEBUG] WHOIS is looking for " << msg.params[0] << " from clients:";
@@ -237,9 +237,9 @@ void WhoisCommand::execute(const Message &msg, int fd)
 	}
 	std::cout << std::endl;
 	// if found
-	// tempClientSend("311 nick user host * :real name", fd)
-	// tempClientSend("312 nick servername :server info", fd)
-	// tempClientSend("318 nick :End of WHOIS list", fd)
+	// sendResponse("311 nick user host * :real name", fd)
+	// sendResponse("312 nick servername :server info", fd)
+	// sendResponse("318 nick :End of WHOIS list", fd)
 }
 
 // possible to implement a timeout mechanic when a client doesn't send PING
@@ -248,9 +248,9 @@ void PingCommand::execute(const Message &msg, int fd)
 {
 	if (msg.params.empty())
 	{
-		tempClientSend("409 :No origin specified", fd);
+		sendResponse("409 :No origin specified", fd);
 		return ;
 	}
 	std::string response = "PONG ircserv :" + msg.params[0];
-	tempClientSend(response, fd);
+	sendResponse(response, fd);
 }
