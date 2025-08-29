@@ -59,21 +59,12 @@ void UserCommand::execute(const Message &msg, int fd)
 		sendResponse("461 :Missing parameters", fd);
 		return ;
 	}
-	std::cout << "[DEBUG] Registered username " << msg.params[0];
-	std::cout << " and realname " << msg.params[3];
-	std::cout << " for client " << fd << std::endl;
-	std::cout << "[DEBUG] ignored hostname " << msg.params[1];
-	std::cout << " and servername " << msg.params[2] << std::endl;
-	// if registered
-	//	sendResponse("462 :Already registered", fd);
-	//	return ;
-
-	// register
-	// if registration successfull ->
-	sendResponse("001 yournick :Welcome to IRC network", fd);
-	sendResponse("002 yournick :Your host is " + msg.params[1], fd);
-	sendResponse("003 yournick :This server was created moments ago", fd);
-	sendResponse("004 yournick :Your info is " + msg.params[0] + " " + msg.params[3], fd);
+	irc->getClient(fd).getUser()->setUser(msg.params[0]);
+	std::string nick = irc->getClient(fd).getUser()->getNick();
+	sendResponse("001 " + nick + " :Welcome to Hive network", fd);
+	sendResponse("002 " + nick + " :Your host is " + msg.params[1], fd);
+	sendResponse("003 " + nick + " :This server was TODO:==:<server.getTimestamp()> ago", fd);
+	sendResponse("004 " + nick + " :Your info is " + msg.params[0] + " " + msg.params[3], fd);
 }
 
 void JoinCommand::execute(const Message &msg, int fd)
