@@ -293,19 +293,21 @@ void ModeCommand::execute(const Message &msg, int fd)
 		std::string supported = "itkol";
 		std::string requireParam = "kl";
 		size_t paramsNeeded = 2;
-		for (char c : enable)
+		for (auto c = enable.begin(); c != enable.end(); ++c)
 		{
-			if (supported.find(c) == std::string::npos)
+			if ((supported.find(*c) == std::string::npos)
+				|| (std::find(c + 1, enable.end(), *c) != enable.end()))
 			{
 				sendResponse("472 :Unknown mode", fd);
 				return ;
 			}
-			if (requireParam.find(c) != std::string::npos)
+			if (requireParam.find(*c) != std::string::npos)
 				paramsNeeded++;
 		}
-		for (char c : disable)
+		for (auto c = disable.begin(); c != disable.end(); ++c)
 		{
-			if (supported.find(c) == std::string::npos)
+			if ((supported.find(*c) == std::string::npos)
+				|| (std::find(c + 1, disable.end(), *c) != disable.end()))
 			{
 				sendResponse("472 :Unknown mode", fd);
 				return ;
