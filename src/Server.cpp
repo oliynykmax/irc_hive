@@ -1,12 +1,12 @@
 #include "Server.hpp"
 
 Server::Server(std::string passwd) :
+_startTime(time(NULL)),
 _fd(epoll_create1(0)),
 _password(passwd)
 {
 	if(_fd == -1)
 		throw std::runtime_error("Server::Server: ERROR - Failed to create epoll file");
-
 	_events.reserve(_max_events * sizeof(epoll_event));
 }
 
@@ -97,6 +97,10 @@ void Server::registerHandler(const int fd, uint32_t eventType, std::function<voi
 
 void Server::addOwnSocket(int sockfd) {
 	_clients.try_emplace(sockfd, Client(sockfd));
+}
+
+std::string Server::getTime(void) const {
+	return ctime(&_startTime);
 }
 
 const std::unordered_map<int, class Client>& Server::getClients() const {
