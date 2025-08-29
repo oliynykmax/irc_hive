@@ -20,13 +20,14 @@ int Server::getServerFd() const {
 	return _fd;
 }
 
-void Server::addClient(Client client) {
+void Server::addClient(Client& client) {
 	_clients.try_emplace(client._fd, client);
 }
 
 void Server::removeClient(const int fd) {
 	if(!_clients.empty())
 		_clients.erase(fd);
+	close(fd);
 }
 
 void Server::_reloadHandler(Client &client) const {
