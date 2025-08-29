@@ -34,7 +34,7 @@ void Handler::acceptClient(int socket) {
 	fd = accept(socket, (struct sockaddr*) &remote, &remoteLen);
 
 	if (fd > 0) {
-		cout << "A client connected with fd nbr " << fd << " connected" << endl;
+		cout << "A client with fd nbr " << fd << " connected" << endl;
 		Client client(fd);
 		irc->addClient(client);
 		irc->registerHandler(fd, EPOLLIN, clientWrite);
