@@ -12,6 +12,10 @@ _password(passwd)
 
 Server::~Server() { close(_fd); }
 
+bool Server::checkPassword(std::string password) const {
+	return _password == password;
+}
+
 int Server::getServerFd() const {
 	return _fd;
 }
@@ -92,4 +96,8 @@ void Server::registerHandler(const int fd, uint32_t eventType, std::function<voi
 
 void Server::addOwnSocket(int sockfd) {
 	_clients.try_emplace(sockfd, Client(sockfd));
+}
+
+const std::unordered_map<int, class Client>& Server::getClients() const {
+	return (_clients);
 }
