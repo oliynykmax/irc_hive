@@ -24,7 +24,7 @@ class Server {
 	public:
 		Server(std::string passwd = "");
 		virtual ~Server();
-		void addClient(Client client);
+		void addClient(Client& client);
 		void removeClient(const int fd);
 		void registerHandler(const int fd, uint32_t eventType, std::function<void(int)> handler);
 		void addOwnSocket(int sockfd);
