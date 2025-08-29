@@ -302,7 +302,7 @@ void QuitCommand::execute(const Message &msg, int fd)
 		std::cout << msg.params[0] << std::endl;
 	else
 		std::cout << "Client Quit" << std::endl;
-	irc->removeClient(irc->getClients().at(fd));
+	irc->removeClient(fd);
 	std::cout << "[DEBUG] Removing user " << fd << " from channels ETC ETC" << std::endl;
 }
 
@@ -360,7 +360,7 @@ void PassCommand::execute(const Message &msg, int fd)
 		return ;
 	} else {
 		sendResponse("464 :Incorrect password", fd);
-		irc->removeClient(irc->getClients().at(fd));
+		irc->removeClient(fd);
 	}
 }
 
