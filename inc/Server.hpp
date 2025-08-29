@@ -27,7 +27,12 @@ class Server {
 		void removeClient(const Client client);
 		void registerHandler(const int fd, uint32_t eventType, std::function<void(int)> handler);
 		void addOwnSocket(int sockfd);
-
+		/*
+		 * @brief Compare password to servers, or without argument if one is set
+		* @param password the user provided PASS, default ""
+		* @return true if match or empty, false if neither
+		 */
+		bool checkPassword(std::string password = "") const;
 		void poll(int tout = -1);
 		const std::unordered_map<int, class Client>& getClients() const;
 		int getServerFd() const;

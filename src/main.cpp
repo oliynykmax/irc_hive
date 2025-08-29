@@ -23,7 +23,7 @@ int main(int argc, char *argv[]) {
 		cerr << "Usage ./ircserv [port] <password>" << endl;
 		return 1;
 	} else if (argc == 3) {
-		irc = new Server(argv[2]);
+		irc = new Server(std::string(argv[2]));
 	} else {
 		irc = new Server;
 	}
