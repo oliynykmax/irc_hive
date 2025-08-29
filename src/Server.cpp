@@ -20,13 +20,13 @@ int Server::getServerFd() const {
 	return _fd;
 }
 
-void Server::addClient(const Client client) {
+void Server::addClient(Client client) {
 	_clients.try_emplace(client._fd, client);
 }
 
-void Server::removeClient(const Client client) {
+void Server::removeClient(const int fd) {
 	if(!_clients.empty())
-		_clients.erase(client._fd);
+		_clients.erase(fd);
 }
 
 void Server::_reloadHandler(Client &client) const {
@@ -74,7 +74,7 @@ void Server::poll(int tout) {
 		}
 
 		if (event & (EPOLLRDHUP & EPOLLHUP))
-			removeClient(_clients.at(fd));
+			removeClient(fd);
 	}
 }
 
@@ -100,4 +100,11 @@ void Server::addOwnSocket(int sockfd) {
 
 const std::unordered_map<int, class Client>& Server::getClients() const {
 	return (_clients);
+}
+
+Client& Server::getClient(int fd) {
+	if (_clients.count(fd) == 0)
+		throw std::runtime_error("Server::getClient: Error - no such file descriptor");
+
+	return (_clients.at(fd));
 }

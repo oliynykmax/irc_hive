@@ -42,10 +42,13 @@ void NickCommand::execute(const Message &msg, int fd)
 	for (auto client : irc->getClients())
 	{
 		std::cout << "[DEBUG] Checking nick collission with client: " << client.first << std::endl;
+		if (client.second.getUser()->getNick() == newNick)
+		{
+			sendResponse("433 :Nickname is already in use", fd);
+			return ;
+		}
 	}
-	// handle collission
-	//		sendResponse("433 :Nickname is already in use", fd);
-	// if changing from a previous nickname, broadcast change to others
+	irc->getClient(fd).getUser()->setNick(newNick);
 	std::cout << "[DEBUG] Set client nickname to: " << newNick << std::endl;
 }
 
@@ -64,6 +67,7 @@ void UserCommand::execute(const Message &msg, int fd)
 	// if registered
 	//	sendResponse("462 :Already registered", fd);
 	//	return ;
+
 	// register
 	// if registration successfull ->
 	sendResponse("001 yournick :Welcome to IRC network", fd);
@@ -298,7 +302,7 @@ void QuitCommand::execute(const Message &msg, int fd)
 		std::cout << msg.params[0] << std::endl;
 	else
 		std::cout << "Client Quit" << std::endl;
-	irc->removeClient(irc->getClients().at(fd));
+	irc->removeClient(fd);
 	std::cout << "[DEBUG] Removing user " << fd << " from channels ETC ETC" << std::endl;
 }
 
@@ -356,7 +360,7 @@ void PassCommand::execute(const Message &msg, int fd)
 		return ;
 	} else {
 		sendResponse("464 :Incorrect password", fd);
-		irc->removeClient(irc->getClients().at(fd));
+		irc->removeClient(fd);
 	}
 }
 
