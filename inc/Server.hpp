@@ -2,6 +2,7 @@
 #include <array>
 #include <vector>
 #include <string>
+#include <future>
 #include <cstdint>
 #include <fcntl.h>
 #include <unistd.h>
@@ -17,7 +18,7 @@ class Server {
 		std::unordered_map<int, class Client> _clients{};
 		std::vector<epoll_event> _events{};
 		const int _fd;
-		const int _max_events = 10;
+		const int _max_events = 100;
 		std::string _password;
 		void _reloadHandler(Client &client) const;
 	public:

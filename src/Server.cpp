@@ -70,7 +70,7 @@ void Server::poll(int tout) {
 			if (_clients.count(fd) == 0)
 				return ;
 			if (_clients.at(fd).handler(type & event))
-				_clients.at(fd).getHandler(type & event)(fd);
+				auto fut = std::async(std::launch::async, _clients.at(fd).getHandler(type & event), fd);
 		}
 
 		if (event & (EPOLLRDHUP & EPOLLHUP))
