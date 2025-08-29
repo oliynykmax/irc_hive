@@ -1,32 +1,59 @@
 #include "Client.hpp"
-#include <stdexcept>
-#include <sys/epoll.h>
-#include <fcntl.h>
 
-Client::Client(int fd) : _fd(fd) {
+
+Client::Client(int fd) :
+_self(new User()),
+_fd(fd) {
 	if (fcntl(fd, F_SETFL, O_NONBLOCK))
 		throw std::runtime_error("Client::Client: Fcntl failed");
+}
+
+Client::Client(const Client& other) :
+_IN(other._IN),
+_OUT(other._OUT),
+_RDHUP(other._RDHUP),
+_PRI(other._PRI),
+_ERR(other._ERR),
+_HUP(other._HUP),
+_self(new User(*other._self)),
+_fd(other._fd),
+_initialized(other._initialized){}
+
+Client& Client::operator=(const Client& other) {
+	if (this != &other) {
+		delete _self;
+		_self = new User(*other._self);
+	}
+	return *this;
+}
+
+Client::~Client() {
+	delete _self;
+}
+
+User* Client::getUser(void) {
+	return _self;
 }
 
 void Client::setHandler(uint32_t eventType, std::function<void(int)> handler) {
 	switch (eventType) {
 		case EPOLLIN:
-			IN = std::move(handler);
+			_IN = std::move(handler);
 			break;
 		case EPOLLOUT:
-			OUT = std::move(handler);
+			_OUT = std::move(handler);
 			break;
 		case EPOLLRDHUP:
-			RDHUP = std::move(handler);
+			_RDHUP = std::move(handler);
 			break;
 		case EPOLLPRI:
-			PRI = std::move(handler);
+			_PRI = std::move(handler);
 			break;
 		case EPOLLERR:
-			ERR = std::move(handler);
+			_ERR = std::move(handler);
 			break;
 		case EPOLLHUP:
-			HUP = std::move(handler);
+			_HUP = std::move(handler);
 			break;
 		default:
 			break;
@@ -36,17 +63,17 @@ void Client::setHandler(uint32_t eventType, std::function<void(int)> handler) {
 bool Client::handler(uint32_t eventType) const {
 	switch (eventType) {
 		case EPOLLIN:
-			return IN != nullptr;
+			return _IN != nullptr;
 		case EPOLLOUT:
-			return OUT != nullptr;
+			return _OUT != nullptr;
 		case EPOLLRDHUP:
-			return RDHUP != nullptr;
+			return _RDHUP != nullptr;
 		case EPOLLPRI:
-			return PRI != nullptr;
+			return _PRI != nullptr;
 		case EPOLLERR:
-			return ERR != nullptr;
+			return _ERR != nullptr;
 		case EPOLLHUP:
-			return HUP != nullptr;
+			return _HUP != nullptr;
 		default:
 			return false;
 	}
@@ -55,17 +82,17 @@ bool Client::handler(uint32_t eventType) const {
 std::function<void(int)>& Client::getHandler(uint32_t eventType) {
 	switch (eventType) {
 		case EPOLLIN:
-			return IN;
+			return _IN;
 		case EPOLLOUT:
-			return OUT;
+			return _OUT;
 		case EPOLLRDHUP:
-			return RDHUP;
+			return _RDHUP;
 		case EPOLLPRI:
-			return PRI;
+			return _PRI;
 		case EPOLLERR:
-			return ERR;
+			return _ERR;
 		case EPOLLHUP:
-			return HUP;
+			return _HUP;
 		default:
 			throw std::runtime_error("Client::getHandler: Error; invalid eventType");
 	}
