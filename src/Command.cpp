@@ -233,6 +233,7 @@ void TopicCommand::execute(const Message &msg, int fd)
 
 void ModeCommand::execute(const Message &msg, int fd)
 {
+	//sendResponse("472 :Unknown mode", fd);
 	auto channel = [&]()
 	{
 		// if user not operator on channel;
@@ -242,28 +243,59 @@ void ModeCommand::execute(const Message &msg, int fd)
 			sendResponse("461 :Need more parameters", fd);
 			return ;
 		}
-
-		if (msg.params[1].size() != 2
-				&& msg.params[1][0] != '-' && msg.params[1][0] != '+')
+		std::string input = msg.params[1];
+		std::string enable;
+		std::string disable;
+		bool plus;
+		for (auto c = input.begin(); c != input.end(); ++c)
 		{
-			sendResponse("472 :Unknown mode", fd);
-			return ;
+			if (*c == '+')
+				plus = true;
+			else if (*c == '-')
+				plus = false;
+			else
+			{
+				sendResponse("472 :Unknown mode", fd);
+				return ;
+			}
+			++c;
+			while (c != input.end() && std::isalpha(*c))
+			{
+				if (plus)
+					enable += *c;
+				else
+					disable += *c;
+				c++;
+			}
 		}
 		std::string supported = "itkol";
-		if (supported.find(msg.params[1][1]) == std::string::npos)
-		{
-			sendResponse("472 :Unknown mode", fd);
-			return ;
-		}
 		std::string requireParam = "kl";
-		if (requireParam.find(msg.params[1][1]) != std::string::npos
-				&& msg.params[1][0] == '+'
-				&& msg.params.size() < 3)
+		int paramsNeeded = 2;
+		for (char c : enable)
+		{
+			if (supported.find(c) == std::string::npos)
+			{
+				sendResponse("472 :Unknown mode", fd);
+				return ;
+			}
+			if (requireParam.find(c) != std::string::npos)
+				paramsNeeded++;
+		}
+		for (char c : disable)
+		{
+			if (supported.find(c) == std::string::npos)
+			{
+				sendResponse("472 :Unknown mode", fd);
+				return ;
+			}
+		}
+		if (msg.params.size() < paramsNeeded)
 		{
 			sendResponse("461 :Need more parameters", fd);
 			return ;
 		}
-		std::cout << "[DEBUG] Set channel modes " << msg.params[1] << " for " << msg.params[0] << std::endl;
+		std::cout << "[DEBUG] Enabled channel modes " << enable << " for " << msg.params[0] << std::endl;
+		std::cout << "[DEBUG] Disabled channel modes " << disable << " for " << msg.params[0] << std::endl;
 	};
 
 	auto user = [&]()
