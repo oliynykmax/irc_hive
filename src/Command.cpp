@@ -41,7 +41,6 @@ void NickCommand::execute(const Message &msg, int fd)
 	}
 	for (auto client : irc->getClients())
 	{
-		std::cout << "[DEBUG] Checking nick collission with client: " << client.first << std::endl;
 		if (client.second.getUser()->getNick() == newNick)
 		{
 			sendResponse("433 :Nickname is already in use", fd);
@@ -49,7 +48,6 @@ void NickCommand::execute(const Message &msg, int fd)
 		}
 	}
 	irc->getClient(fd).getUser()->setNick(newNick);
-	std::cout << "[DEBUG] Set client nickname to: " << newNick << std::endl;
 }
 
 void UserCommand::execute(const Message &msg, int fd)
