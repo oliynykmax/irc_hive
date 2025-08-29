@@ -233,6 +233,7 @@ void TopicCommand::execute(const Message &msg, int fd)
 
 void ModeCommand::execute(const Message &msg, int fd)
 {
+	//sendResponse("472 :Unknown mode", fd);
 	auto channel = [&]()
 	{
 		// if user not operator on channel;
@@ -242,28 +243,83 @@ void ModeCommand::execute(const Message &msg, int fd)
 			sendResponse("461 :Need more parameters", fd);
 			return ;
 		}
-
-		if (msg.params[1].size() != 2
-				&& msg.params[1][0] != '-' && msg.params[1][0] != '+')
+		std::string input = msg.params[1];
+		std::string seen;
+		for (auto c = seen.begin(); c != seen.end(); ++c)
 		{
-			sendResponse("472 :Unknown mode", fd);
-			return ;
+			if (*c != '-' && *c != '+')
+			{
+				if (seen.find(*c) != std::string::npos)
+				{
+					sendResponse("472 :Unknown mode", fd);
+					return ;
+				}
+				seen += *c;
+			}
+		}
+		std::string enable;
+		std::string disable;
+		bool plus;
+		bool valid;
+		auto c = input.begin();
+		while (c != input.end())
+		{
+			if (*c == '+'|| *c == '-')
+			{
+				plus = (*c == '+');
+				++c;
+				valid = false;
+				while (c != input.end() && std::isalpha(*c))
+				{
+					valid = true;
+					if (plus)
+						enable += *c;
+					else
+						disable += *c;
+					++c;
+				}
+				if (!valid)
+				{
+					sendResponse("472 :Unknown mode", fd);
+					return ;
+				}
+			}
+			else
+			{
+				sendResponse("472 :Unknown mode", fd);
+				return ;
+			}
 		}
 		std::string supported = "itkol";
-		if (supported.find(msg.params[1][1]) == std::string::npos)
-		{
-			sendResponse("472 :Unknown mode", fd);
-			return ;
-		}
 		std::string requireParam = "kl";
-		if (requireParam.find(msg.params[1][1]) != std::string::npos
-				&& msg.params[1][0] == '+'
-				&& msg.params.size() < 3)
+		size_t paramsNeeded = 2;
+		for (auto c = enable.begin(); c != enable.end(); ++c)
+		{
+			if ((supported.find(*c) == std::string::npos)
+				|| (std::find(c + 1, enable.end(), *c) != enable.end()))
+			{
+				sendResponse("472 :Unknown mode", fd);
+				return ;
+			}
+			if (requireParam.find(*c) != std::string::npos)
+				paramsNeeded++;
+		}
+		for (auto c = disable.begin(); c != disable.end(); ++c)
+		{
+			if ((supported.find(*c) == std::string::npos)
+				|| (std::find(c + 1, disable.end(), *c) != disable.end()))
+			{
+				sendResponse("472 :Unknown mode", fd);
+				return ;
+			}
+		}
+		if (msg.params.size() < paramsNeeded)
 		{
 			sendResponse("461 :Need more parameters", fd);
 			return ;
 		}
-		std::cout << "[DEBUG] Set channel modes " << msg.params[1] << " for " << msg.params[0] << std::endl;
+		std::cout << "[DEBUG] Enabled channel modes " << enable << " for " << msg.params[0] << std::endl;
+		std::cout << "[DEBUG] Disabled channel modes " << disable << " for " << msg.params[0] << std::endl;
 	};
 
 	auto user = [&]()
