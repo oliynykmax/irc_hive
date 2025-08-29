@@ -61,7 +61,7 @@ void UserCommand::execute(const Message &msg, int fd)
 	std::string nick = irc->getClient(fd).getUser()->getNick();
 	sendResponse("001 " + nick + " :Welcome to Hive network", fd);
 	sendResponse("002 " + nick + " :Your host is " + msg.params[1], fd);
-	sendResponse("003 " + nick + " :This server was TODO:==:<server.getTimestamp()> ago", fd);
+	sendResponse("003 " + nick + " :This server was started " + irc->getTime(), fd);
 	sendResponse("004 " + nick + " :Your info is " + msg.params[0] + " " + msg.params[3], fd);
 }
 
