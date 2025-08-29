@@ -1,6 +1,12 @@
 #pragma once
 #include "Message.hpp"
+#include "Server.hpp"
+#include <sys/socket.h>
 #include <iostream>
+#include <string>
+#include <regex>
+
+extern Server *irc;
 
 /**
  * @class	ICommand
@@ -77,6 +83,30 @@ class	QuitCommand : public ICommand
 };
 
 class	CapCommand : public ICommand
+{
+	public:
+		void	execute(const Message &msg, int fd) override;
+};
+
+class	WhoisCommand : public ICommand
+{
+	public:
+		void	execute(const Message &msg, int fd) override;
+};
+
+class	PingCommand : public ICommand
+{
+	public:
+		void	execute(const Message &msg, int fd) override;
+};
+
+class	PassCommand : public ICommand
+{
+	public:
+		void	execute(const Message &msg, int fd) override;
+};
+
+class	UnknownCommand : public ICommand
 {
 	public:
 		void	execute(const Message &msg, int fd) override;
