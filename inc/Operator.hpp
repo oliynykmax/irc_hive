@@ -1,5 +1,8 @@
 #pragma once
 #include "User.hpp"
+#include "Channel.hpp"
+
+class User;
 
 enum mode {
 	i,
@@ -8,6 +11,7 @@ enum mode {
 	o,
 	l
 };
+
 
 class Operator : public User {
 	public:

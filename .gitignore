@@ -2,3 +2,5 @@
 ircserv
 *.o
 .clangd
+compile_commands.json
+.cache
