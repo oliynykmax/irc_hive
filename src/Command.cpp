@@ -369,21 +369,9 @@ void CapCommand::execute(const Message &msg, int fd)
 
 void WhoisCommand::execute(const Message &msg, int fd)
 {
-	if (msg.params.empty())
-	{
-		sendResponse("431 :No nickname given", fd);
-		return ;
-	}
-	std::cout << "[DEBUG] WHOIS is looking for " << msg.params[0] << " from clients:";
-	for (auto client : irc->getClients())
-	{
-		std::cout << " " << client.first;
-	}
-	std::cout << std::endl;
-	// if found
-	// sendResponse("311 nick user host * :real name", fd)
-	// sendResponse("312 nick servername :server info", fd)
-	// sendResponse("318 nick :End of WHOIS list", fd)
+	(void)msg;
+	std::string nick = irc->getClient(fd).getUser()->getNick();
+	sendResponse("318 " + nick + " :End of WHOIS list", fd);
 }
 
 void PingCommand::execute(const Message &msg, int fd)
