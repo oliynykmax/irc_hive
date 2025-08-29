@@ -244,33 +244,55 @@ void ModeCommand::execute(const Message &msg, int fd)
 			return ;
 		}
 		std::string input = msg.params[1];
+		std::string seen;
+		for (auto c = seen.begin(); c != seen.end(); ++c)
+		{
+			if (*c != '-' && *c != '+')
+			{
+				if (seen.find(*c) != std::string::npos)
+				{
+					sendResponse("472 :Unknown mode", fd);
+					return ;
+				}
+				seen += *c;
+			}
+		}
 		std::string enable;
 		std::string disable;
 		bool plus;
-		for (auto c = input.begin(); c != input.end(); ++c)
+		bool valid;
+		auto c = input.begin();
+		while (c != input.end())
 		{
-			if (*c == '+')
-				plus = true;
-			else if (*c == '-')
-				plus = false;
+			if (*c == '+'|| *c == '-')
+			{
+				plus = (*c == '+');
+				++c;
+				valid = false;
+				while (c != input.end() && std::isalpha(*c))
+				{
+					valid = true;
+					if (plus)
+						enable += *c;
+					else
+						disable += *c;
+					++c;
+				}
+				if (!valid)
+				{
+					sendResponse("472 :Unknown mode", fd);
+					return ;
+				}
+			}
 			else
 			{
 				sendResponse("472 :Unknown mode", fd);
 				return ;
 			}
-			++c;
-			while (c != input.end() && std::isalpha(*c))
-			{
-				if (plus)
-					enable += *c;
-				else
-					disable += *c;
-				c++;
-			}
 		}
 		std::string supported = "itkol";
 		std::string requireParam = "kl";
-		int paramsNeeded = 2;
+		size_t paramsNeeded = 2;
 		for (char c : enable)
 		{
 			if (supported.find(c) == std::string::npos)
