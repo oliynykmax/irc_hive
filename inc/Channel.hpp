@@ -1,9 +1,9 @@
 #pragma once
 #include "User.hpp"
 //#include "Operator.hpp"
-#include <vector>
+#include <set>
 
-using std::vector;
+using std::set;
 
 class User;
 
@@ -14,9 +14,11 @@ class User;
  */
 class Channel {
 	private:
-		vector<User> _users;
+		set<int> _users;
+		set<int> _oper;
 	public:
-		void addUser(User user);
-		void makeOperator(User user);
-		void kick(User user);
+		explicit Channel(int fd);
+		bool addUser(int fd);
+		bool makeOperator(int fd);
+		bool kick(int fd);
 };
