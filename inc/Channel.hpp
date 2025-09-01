@@ -28,8 +28,11 @@ class Channel {
 		std::string _topic;
 		set<int> _users;
 		set<int> _oper;
+		set<char> _mode;
 	public:
 		explicit Channel(std::string channel);
+		const set<char>& getMode(void) const;
+		void setMode(std::string mode);
 		bool setTopic(int fd, std::string topic);
 		bool checkUser(int fd);
 		bool addUser(int fd);
