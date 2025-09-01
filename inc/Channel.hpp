@@ -33,6 +33,7 @@ class Channel {
 		bool setTopic(int fd, std::string topic);
 		bool checkUser(int fd);
 		bool addUser(int fd);
+		std::string userList(void) const;
 		bool makeOperator(int op, int newOp);
 		bool kick(int op, int user);
 		bool message(int fd, std::string msg);
