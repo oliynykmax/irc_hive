@@ -1,9 +1,14 @@
 #pragma once
 #include "User.hpp"
+#include "Server.hpp"
 //#include "Operator.hpp"
 #include <set>
+#include <sys/types.h>
+#include <sys/socket.h>
 
 using std::set;
+
+extern Server *irc;
 
 class User;
 
@@ -14,11 +19,13 @@ class User;
  */
 class Channel {
 	private:
+		std::string _name;
 		set<int> _users;
 		set<int> _oper;
 	public:
-		explicit Channel(int fd);
+		explicit Channel(int fd, std::string channel);
 		bool addUser(int fd);
 		bool makeOperator(int fd);
 		bool kick(int fd);
+		bool message(int fd, std::string msg);
 };
