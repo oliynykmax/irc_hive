@@ -95,7 +95,10 @@ void JoinCommand::execute(const Message &msg, int fd)
 			irc->getClient(fd).getUser()->getNick() +
 			" " + msg.params[0] + " :No topic is set", fd);
 	// sendResponse("332 <nick> <channel> :<topic>", fd);
-	// sendResponse("353 <nick> @ <channel> :<nick1> <nick2> <nick3>...", fd);
+	std::string names = channel.userList();
+	sendResponse("353 " +
+			irc->getClient(fd).getUser()->getNick() + 
+			" @ " + msg.params[0] + " :" + names, fd);
 	sendResponse("366 " +
 			irc->getClient(fd).getUser()->getNick() +
 			" " + msg.params[0] + " :End of NAMES list", fd);
