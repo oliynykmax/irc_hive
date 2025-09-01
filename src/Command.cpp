@@ -79,7 +79,7 @@ void JoinCommand::execute(const Message &msg, int fd)
 		sendResponse("403 <nick> " + msg.params[0] + " :No such channel", fd);
 		return ;
 	}
-	Channel &channel = irc->addChannel(fd, msg.params[0]);
+	Channel &channel = irc->addChannel(msg.params[0]);
 	if (!channel.addUser(fd))
 	{
 		sendResponse("443 :You are already on the channel", fd);
@@ -96,7 +96,9 @@ void JoinCommand::execute(const Message &msg, int fd)
 			" " + msg.params[0] + " :No topic is set", fd);
 	// sendResponse("332 <nick> <channel> :<topic>", fd);
 	// sendResponse("353 <nick> @ <channel> :<nick1> <nick2> <nick3>...", fd);
-	sendResponse("366 <nick> <channel> :End of NAMES list", fd);
+	sendResponse("366 " +
+			irc->getClient(fd).getUser()->getNick() +
+			" " + msg.params[0] + " :End of NAMES list", fd);
 	std::cout << "[DEBUG] User " << fd << " joined/created channel " << msg.params[0] << std::endl;
 	// for (client : channel.clients())
 	//	sendResponse(":<nick>!<user>@<host> JOIN :<channel>", client.fd());
