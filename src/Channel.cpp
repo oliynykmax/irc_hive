@@ -46,6 +46,23 @@ bool Channel::addUser(int user) {
 	return false;
 }
 
+std::string Channel::userList(void) const {
+	std::string ret;
+
+	for (auto users : _users) {
+		ret += "@";
+		ret += irc->getClient(users).getUser()->getNick();
+		ret += " ";
+	}
+	for (auto users : _oper) {
+		ret += "@";
+		ret += irc->getClient(users).getUser()->getNick();
+		ret += " ";
+	}
+	ret.erase(ret.end());
+	return ret;
+}
+
 bool Channel::makeOperator(int op, int newOp) {
 	if (_oper.contains(op) && _users.contains(newOp)) {
 		_users.erase(newOp);
