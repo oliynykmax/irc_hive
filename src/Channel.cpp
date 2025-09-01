@@ -59,6 +59,7 @@ bool Channel::addUser(int user) {
 		} else {
 			_users.emplace(user);
 		}
+		irc->getClient(user).getUser()->join(this);
 		return true;
 	}
 	return false;
@@ -67,6 +68,7 @@ bool Channel::addUser(int user) {
 bool Channel::joinWithPassword(int fd, std::string passwd) {
 	if (passwd == _passwd) {
 		_users.emplace(fd);
+		irc->getClient(fd).getUser()->join(this);
 		return true;
 	} else {
 		return false;
