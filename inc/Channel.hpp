@@ -17,7 +17,9 @@ class User;
 /*
  * @class Channel
  * @brief Like rooms that can have Users and 1 or more Operators
- * @param _users vector containing User classes
+ * @param _name what the #channel is called
+ * @param _users set containing sockets
+ * @param _oper set containing sockets of operators
  */
 class Channel {
 	private:
@@ -29,5 +31,5 @@ class Channel {
 		bool addUser(int fd);
 		bool makeOperator(int fd);
 		bool kick(int fd);
-		void message(int fd, std::string msg);
+		bool message(int fd, std::string msg);
 };
