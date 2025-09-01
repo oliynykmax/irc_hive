@@ -14,7 +14,8 @@ static void debugLog(const Message &msg)
 static void	sendResponse(std::string message, int fd)
 {
 	message.append("\r\n");
-	send(fd, message.c_str(), message.size(), 0);
+	if (send(fd, message.c_str(), message.size(), 0) < 0)
+		throw (std::runtime_error("Failed to send respond (send)"));
 }
 
 void NickCommand::execute(const Message &msg, int fd)
