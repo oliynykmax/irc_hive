@@ -79,22 +79,24 @@ void JoinCommand::execute(const Message &msg, int fd)
 		sendResponse("403 <nick> " + msg.params[0] + " :No such channel", fd);
 		return ;
 	}
-	// if user is on the channel already
-	//	sendResponse("443 :You are already on the channel", fd);
-	// if user is on too many channels i guess?
-	//	sendResponse("405 :You have joined too many channels", fd);
+	Channel &channel = irc->addChannel(fd, msg.params[0]);
+	if (!channel.addUser(fd))
+	{
+		sendResponse("443 :You are already on the channel", fd);
+		return ;
+	}
 	// if channel has limit and is full
 	//	sendResponse("471 :Cannot join channel (Channel is full)", fd);
 	// if channel is invite only
 	//	sendResponse("473 :Cannot join an invite only channel", fd);
 	// if channel has password and you put in a wrong one
 	//	sendResponse("475 :Incorrect channel key", fd);
-
-	// update client & server
-	// sendResponse("331 <nick> <channel> :No topic is set", fd);
+	sendResponse("331 " +
+			irc->getClient(fd).getUser()->getNick() +
+			" " + msg.params[0] + " :No topic is set", fd);
 	// sendResponse("332 <nick> <channel> :<topic>", fd);
 	// sendResponse("353 <nick> @ <channel> :<nick1> <nick2> <nick3>...", fd);
-	// sendResponse("366 <nick> <channel> :End of NAMES list", fd);
+	sendResponse("366 <nick> <channel> :End of NAMES list", fd);
 	std::cout << "[DEBUG] User " << fd << " joined/created channel " << msg.params[0] << std::endl;
 	// for (client : channel.clients())
 	//	sendResponse(":<nick>!<user>@<host> JOIN :<channel>", client.fd());
