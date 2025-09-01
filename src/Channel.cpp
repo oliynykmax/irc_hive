@@ -4,6 +4,14 @@
 Channel::Channel(std::string channel) : _name(channel) {
 }
 
+bool Channel::isEmpty(void) const {
+	return _users.empty() && _oper.empty();
+}
+
+void Channel::setPassword(std::string passwd) {
+	_passwd = passwd;
+}
+
 const set<char>& Channel::getMode(void) const {
 	return _mode;
 }
@@ -46,14 +54,23 @@ bool Channel::checkUser(int user) {
 
 bool Channel::addUser(int user) {
 	if (checkUser(user)) {
-		if (_users.empty() && _oper.empty()) {
+		if (isEmpty()) {
 			_oper.emplace(user);
-		} else if (_users.contains(user) && _oper.contains(user)) {
+		} else {
 			_users.emplace(user);
 		}
 		return true;
 	}
 	return false;
+}
+
+bool Channel::joinWithPassword(int fd, std::string passwd) {
+	if (passwd == _passwd) {
+		_users.emplace(fd);
+		return true;
+	} else {
+		return false;
+	}
 }
 
 std::string Channel::userList(void) const {
