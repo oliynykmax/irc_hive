@@ -4,6 +4,16 @@
 Channel::Channel(std::string channel) : _name(channel) {
 }
 
+const set<char>& Channel::getMode(void) const {
+	return _mode;
+}
+
+void Channel::setMode(std::string mode) {
+	for (char c : mode) {
+		_mode.emplace(c);
+	}
+}
+
 bool Channel::setTopic(int user, std::string topic) {
 	if(_oper.contains(user)) {
 		_topic = topic;

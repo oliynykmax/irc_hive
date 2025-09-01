@@ -12,7 +12,7 @@ void topic(Channel *chan) {
 	(void)chan;
 }
 
-void mode(enum mode a, string option) {
+void mode(string option) {
 	switch(a) {
 		default:
 			(void) option;
