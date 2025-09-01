@@ -32,12 +32,11 @@ class Server {
 		void addClient(Client& client);
 		/*
 		* @brief Constructs a Channel instance and tries to add it to map.
-		* @param fd the socket of Client that asked to JOIN
-		* @param name string of the #channel target
+		* @param name string of the #channel to JOIN
 		* @return Reference either to already existing Channel with the given name
 		* or newly created one.
 		*/
-		Channel& addChannel(int fd, std::string name);
+		Channel& addChannel(std::string name);
 		void removeChannel(std::string name);
 		void removeClient(const int fd);
 		void registerHandler(const int fd, uint32_t eventType, std::function<void(int)> handler);
