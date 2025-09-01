@@ -6,6 +6,8 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 
+class Server;
+
 using std::set;
 
 extern Server *irc;
@@ -27,5 +29,5 @@ class Channel {
 		bool addUser(int fd);
 		bool makeOperator(int fd);
 		bool kick(int fd);
-		bool message(int fd, std::string msg);
+		void message(int fd, std::string msg);
 };
