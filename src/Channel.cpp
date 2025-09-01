@@ -32,23 +32,21 @@ bool Channel::kick(int user) {
 }
 
 void Channel::message(int user, std::string msg) {
-	std::string message = ":" + irc->getClient(fd)->getUser.getNick() + "PRIVMSG" + _name + msg;
+	std::string message = ":" + irc->getClient(user).getUser()->getNick() + "PRIVMSG" + _name + msg;
 
-	for (users : _users) {
+	for (auto users : _users) {
 		if (users == user)
 			continue;
-		if (message.size() == send(users, message.data(), message.size(), 0))
-			continue;
-		else
-			throw std::runtime_error("Channel::message: Error; sending to " + fd + " failed.");
+		auto bytes = send(users, message.data(), message.size(), 0);
+		if (bytes == -1)
+			throw std::runtime_error("Channel::message: Error; sending to " + std::to_string(user) + " failed.");
 	}
 
-	for (users : _oper) {
+	for (auto users : _oper) {
 		if (users == user)
 			continue;
-		if (message.size() == send(users, message.data(), message.size(), 0))
-			continue;
-		else
-			throw std::runtime_error("Channel::message: Error; sending to " + fd + " failed.");
+		auto bytes = send(users, message.data(), message.size(), 0);
+		if (-1 == bytes)
+			throw std::runtime_error("Channel::message: Error; sending to " + std::to_string(user) + " failed.");
 	}
 }
