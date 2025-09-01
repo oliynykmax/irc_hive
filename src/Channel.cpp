@@ -1,29 +1,63 @@
 #include "Channel.hpp"
 #include "Operator.hpp"
 
-Channel::Channel(int user, std::string channel) : _name(channel) {
-	_oper.emplace(user);
+Channel::Channel(std::string channel) : _name(channel) {
 }
 
-bool Channel::addUser(int user) {
-	if (_users.contains(user))
+bool Channel::setTopic(int user, std::string topic) {
+	if(_oper.contains(user)) {
+		_topic = topic;
+		std::string message = ":" + irc->getClient(user).getUser()->getNick() + " TOPIC " + _name + " :" + topic + "\r\n";
+		for (auto users : _users) {
+			if (users == user)
+				continue;
+			auto bytes = send(users, message.data(), message.size(), 0);
+			if (bytes == -1)
+				return false;
+		}
+		for (auto users : _oper) {
+			if (users == user)
+				continue;
+			auto bytes = send(users, message.data(), message.size(), 0);
+			if (bytes == -1)
+				return false;
+		}
+	} else {
 		return false;
-	_users.emplace(user);
+	}
 	return true;
 }
 
-bool Channel::makeOperator(int user) {
-	if (_users.contains(user)) {
-		_users.erase(user);
-		_oper.emplace(user);
+bool Channel::checkUser(int user) {
+	if (_users.contains(user) || _oper.contains(user))
+		return false;
+	return true;
+}
+
+bool Channel::addUser(int user) {
+	if (checkUser(user)) {
+		if (_users.empty() && _oper.empty()) {
+			_oper.emplace(user);
+		} else if (_users.contains(user) && _oper.contains(user)) {
+			_users.emplace(user);
+		}
+		return true;
+	}
+	return false;
+}
+
+bool Channel::makeOperator(int op, int newOp) {
+	if (_oper.contains(op) && _users.contains(newOp)) {
+		_users.erase(newOp);
+		_oper.emplace(newOp);
 		return true;
 	} else {
 		return false;
 	}
 }
 
-bool Channel::kick(int user) {
-	if (_users.contains(user)) {
+bool Channel::kick(int op, int user) {
+	if (_users.contains(user) && _oper.contains(op)) {
 		_users.erase(user);
 		return true;
 	} else {
@@ -49,6 +83,5 @@ bool Channel::message(int user, std::string msg) {
 		if (-1 == bytes)
 			return false;
 	}
-
 	return true;
 }
