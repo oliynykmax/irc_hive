@@ -1,22 +1,35 @@
 #pragma once
 #include "User.hpp"
+#include "Server.hpp"
 //#include "Operator.hpp"
-#include <vector>
+#include <set>
+#include <sys/types.h>
+#include <sys/socket.h>
 
-using std::vector;
+class Server;
+
+using std::set;
+
+extern Server *irc;
 
 class User;
 
 /*
  * @class Channel
  * @brief Like rooms that can have Users and 1 or more Operators
- * @param _users vector containing User classes
+ * @param _name what the #channel is called
+ * @param _users set containing sockets
+ * @param _oper set containing sockets of operators
  */
 class Channel {
 	private:
-		vector<User> _users;
+		std::string _name;
+		set<int> _users;
+		set<int> _oper;
 	public:
-		void addUser(User user);
-		void makeOperator(User user);
-		void kick(User user);
+		explicit Channel(int fd, std::string channel);
+		bool addUser(int fd);
+		bool makeOperator(int fd);
+		bool kick(int fd);
+		bool message(int fd, std::string msg);
 };

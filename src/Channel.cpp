@@ -1,25 +1,54 @@
 #include "Channel.hpp"
 #include "Operator.hpp"
 
-// Channel::Channel(Operator admin) {
-// 	_operators.emplace(0, admin);
-// }
-
-void Channel::addUser(User user) {
-	_users.emplace(_users.end(), user);
+Channel::Channel(int user, std::string channel) : _name(channel) {
+	_oper.emplace(user);
 }
 
-void Channel::makeOperator(User user) {
-	(void)user;
+bool Channel::addUser(int user) {
+	if (_users.contains(user))
+		return false;
+	_users.emplace(user);
+	return true;
 }
 
-void Channel::kick(User user) {
-	int idx = 0;
-	for (User users : _users) {
-		if (&user == &users) {
-			_users.erase(_users.begin() + idx);
-			break;
-		}
-		idx++;
+bool Channel::makeOperator(int user) {
+	if (_users.contains(user)) {
+		_users.erase(user);
+		_oper.emplace(user);
+		return true;
+	} else {
+		return false;
 	}
+}
+
+bool Channel::kick(int user) {
+	if (_users.contains(user)) {
+		_users.erase(user);
+		return true;
+	} else {
+		return false;
+	}
+}
+
+bool Channel::message(int user, std::string msg) {
+	std::string message = ":" + irc->getClient(user).getUser()->getNick() + " PRIVMSG " + _name + " :" + msg + "\r\n";
+
+	for (auto users : _users) {
+		if (users == user)
+			continue;
+		auto bytes = send(users, message.data(), message.size(), 0);
+		if (bytes == -1)
+			return false;
+	}
+
+	for (auto users : _oper) {
+		if (users == user)
+			continue;
+		auto bytes = send(users, message.data(), message.size(), 0);
+		if (-1 == bytes)
+			return false;
+	}
+
+	return true;
 }
