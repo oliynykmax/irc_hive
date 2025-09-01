@@ -20,8 +20,8 @@ int Server::getServerFd() const {
 	return _fd;
 }
 
-Channel& Server::addChannel(int fd, std::string name) {
-	_channels.try_emplace(name, Channel(fd, name));
+Channel& Server::addChannel(std::string name) {
+	_channels.try_emplace(name, Channel(name));
 	return _channels.at(name);
 }
 
