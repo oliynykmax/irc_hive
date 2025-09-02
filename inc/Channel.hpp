@@ -32,8 +32,6 @@ class Channel {
 		set<int> _users;
 		set<int> _oper;
 		set<char> _mode;
-		bool joinWithPassword(int fd, std::string passwd);
-		bool checkUser(int fd);
 	public:
 		explicit Channel(std::string channel);
 		bool isEmpty(void) const;
@@ -41,7 +39,9 @@ class Channel {
 		const set<char>& getMode(void) const;
 		void setMode(std::string mode);
 		bool setTopic(int fd, std::string topic);
+		bool checkUser(int fd);
 		bool addUser(int fd);
+		bool joinWithPassword(int fd, std::string passwd);
 		std::string userList(void) const;
 		bool makeOperator(int op, int newOp);
 		bool kick(int op, int user);

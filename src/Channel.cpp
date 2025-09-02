@@ -105,7 +105,6 @@ bool Channel::makeOperator(int op, int newOp) {
 bool Channel::kick(int op, int user) {
 	if (_users.contains(user) && _oper.contains(op)) {
 		_users.erase(user);
-		//TODO: remove Channel from User
 		return true;
 	} else {
 		return false;
