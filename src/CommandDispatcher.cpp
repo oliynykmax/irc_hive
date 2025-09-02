@@ -30,7 +30,18 @@ void	CommandDispatcher::dispatch(const std::unique_ptr<Message> &msg, int fd)
 	try
 	{
 		if (auto cmd = _handlers.find(msg->command); cmd != _handlers.end())
+		{
+			if (!irc->checkPassword() &&
+				!irc->getClient(fd).isAuthenticated() &&
+				msg->command != "PASS")
+			{
+				std::string response("451 :Not registered\r\n");
+				send(fd, response.c_str(), response.size(), 0);
+				irc->removeClient(fd);
+				return ;
+			}
 			cmd->second->execute(*msg, fd);
+		}
 		else
 			_default.execute(*msg, fd);
 	}
