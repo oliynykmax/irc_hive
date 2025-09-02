@@ -17,7 +17,8 @@ void Handler::clientWrite(int fd) {
 	while (!msg_queue.empty())
 	{
 		const unique_ptr<Message> &msg = msg_queue.front();
-		dispatcher.dispatch(msg, fd);
+		if (!dispatcher.dispatch(msg, fd))
+			return ;
 		msg_queue.pop();
 	}
 }

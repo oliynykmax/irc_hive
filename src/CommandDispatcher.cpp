@@ -25,7 +25,7 @@ CommandDispatcher::CommandDispatcher(void)
  * Search for an installed command handler for the given message and execute
  * @param msg	The full command to execute
  */
-void	CommandDispatcher::dispatch(const std::unique_ptr<Message> &msg, int fd)
+bool	CommandDispatcher::dispatch(const std::unique_ptr<Message> &msg, int fd)
 {
 	try
 	{
@@ -38,7 +38,7 @@ void	CommandDispatcher::dispatch(const std::unique_ptr<Message> &msg, int fd)
 				std::string response("464 :Password incorrect\r\n");
 				send(fd, response.c_str(), response.size(), 0);
 				irc->removeClient(fd);
-				return ;
+				return false;
 			}
 			cmd->second->execute(*msg, fd);
 		}
@@ -49,4 +49,5 @@ void	CommandDispatcher::dispatch(const std::unique_ptr<Message> &msg, int fd)
 	{
 		std::cerr << "Command dispatcher error: " << e.what() << std::endl;
 	}
+	return (true);
 }
