@@ -22,6 +22,12 @@ void Channel::setMode(std::string mode) {
 	}
 }
 
+void Channel::unsetMode(std::string umode)  {
+	for (char c : umode) {
+		_mode.erase(c);
+	}
+}
+
 bool Channel::setTopic(int user, std::string topic) {
 	if(_oper.contains(user)) {
 		_topic = topic;
