@@ -249,6 +249,7 @@ void ModeCommand::execute(const Message &msg, int fd)
 	auto channel = [&]()
 	{
 		Channel *ch = irc->getClient(fd).getUser()->getChannel(msg.params[0]);
+		Channel backup = *ch;
 		if (!ch)
 		{
 			sendResponse("442 :You're not on the channel", fd);
@@ -344,17 +345,47 @@ void ModeCommand::execute(const Message &msg, int fd)
 			sendResponse("461 :Need more parameters", fd);
 			return ;
 		}
-		ch->setMode(enable);
 		int index = 2;
-		for (auto c : enable)
+		try
 		{
-			if (c == 'k')
-				ch->setPassword(msg.params[index++]);
-			if (c == 'l')
-				ch->setLimit(msg.params[index++]);
-			if (c == 'o')
-				ch->makeOperator();
+			for (auto c : enable)
+			{
+				if (c == 'k')
+					ch->setPassword(msg.params[index++]);
+				if (c == 'l')
+					ch->setLimit(std::stoul(msg.params[index++]));
+				if (c == 'o')
+				{
+					auto user = ch->getUsers().begin();
+					while (user != ch->getUsers().end())
+					{
+						if (irc->getClient(*user).getUser()->getNick() ==
+								msg.params[index])
+						{
+							ch->makeOperator(fd, *user);
+							index++;
+							break ;
+						}
+						++user;
+					}
+					if (user == ch->getUsers().end())
+					{
+						sendResponse("441 " +
+								irc->getClient(fd).getUser()->getNick() +
+								" " + msg.params[0] +
+								" :They aren't on that channel", fd);
+						throw (std::runtime_error(""));
+					}
+					
+				}
+			}
 		}
+		catch (std::exception)
+		{
+			*ch = backup;
+			return ;
+		}
+		ch->setMode(enable);
 		ch->unsetMode(disable);
 	};
 
