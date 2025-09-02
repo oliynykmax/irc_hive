@@ -73,31 +73,54 @@ void JoinCommand::execute(const Message &msg, int fd)
 		sendResponse("461 :Missing parameters", fd);
 		return ;
 	}
+	std::string nick = irc->getClient(fd).getUser()->getNick();
 	std::regex channel_regex("^[#][A-Za-z0-9-_]{1,50}*");
 	if (!std::regex_match(msg.params[0], channel_regex))
 	{
-		sendResponse("403 <nick> " + msg.params[0] + " :No such channel", fd);
+		sendResponse("403 " + nick + " " + msg.params[0] + " :No such channel", fd);
 		return ;
 	}
-	// if user is on the channel already
-	//	sendResponse("443 :You are already on the channel", fd);
-	// if user is on too many channels i guess?
-	//	sendResponse("405 :You have joined too many channels", fd);
-	// if channel has limit and is full
-	//	sendResponse("471 :Cannot join channel (Channel is full)", fd);
-	// if channel is invite only
-	//	sendResponse("473 :Cannot join an invite only channel", fd);
-	// if channel has password and you put in a wrong one
-	//	sendResponse("475 :Incorrect channel key", fd);
-
-	// update client & server
-	// sendResponse("331 <nick> <channel> :No topic is set", fd);
-	// sendResponse("332 <nick> <channel> :<topic>", fd);
-	// sendResponse("353 <nick> @ <channel> :<nick1> <nick2> <nick3>...", fd);
-	// sendResponse("366 <nick> <channel> :End of NAMES list", fd);
-	std::cout << "[DEBUG] User " << fd << " joined/created channel " << msg.params[0] << std::endl;
-	// for (client : channel.clients())
-	//	sendResponse(":<nick>!<user>@<host> JOIN :<channel>", client.fd());
+	Channel &channel = irc->addChannel(msg.params[0]);
+	if (!channel.checkUser(fd))
+	{
+		sendResponse("443 :You are already on the channel", fd);
+		return ;
+	}
+	const auto &modes = channel.getMode();
+	if (modes.contains('l') &&
+			(channel.getUsers().size() +
+			 channel.getOperators().size()) >= channel.getLimit())
+	{
+		sendResponse("471 :Cannot join channel (Channel is full)", fd);
+		return ;
+	}
+	if (modes.contains('i'))
+	{
+		sendResponse("473 :Cannot join an invite only channel", fd);
+		return ;
+	}
+	if (modes.contains('k'))
+	{
+		if (msg.params.size() < 2 || !channel.joinWithPassword(fd, msg.params[1]))
+		{
+			sendResponse("475 :Incorrect channel key", fd);
+			return ;
+		}
+	}
+	else
+		channel.addUser(fd);
+	const std::string &topic = channel.getTopic();
+	if (topic.empty())
+		sendResponse("331 " + nick + " " + msg.params[0] + " :No topic is set", fd);
+	else
+		sendResponse("332 " + nick + " " + msg.params[0] + " :" + topic, fd);
+	const std::string &names = channel.userList();
+	sendResponse("353 " + nick + " @ " + msg.params[0] + " :" + names, fd);
+	sendResponse("366 " + nick + " " + msg.params[0] + " :End of NAMES list", fd);
+	for (auto user : channel.getUsers())
+		sendResponse(":" + nick + " JOIN :" + msg.params[0], user);
+	for (auto oper : channel.getOperators())
+		sendResponse(":" + nick + " JOIN :" + msg.params[0], oper);
 }
 
 void PartCommand::execute(const Message &msg, int fd)
