@@ -362,7 +362,7 @@ void ModeCommand::execute(const Message &msg, int fd)
 						if (irc->getClient(*user).getUser()->getNick() ==
 								msg.params[index])
 						{
-							ch->makeOperator(fd, *user);
+							ch->makeOperator(*user);
 							index++;
 							break ;
 						}
@@ -376,11 +376,11 @@ void ModeCommand::execute(const Message &msg, int fd)
 								" :They aren't on that channel", fd);
 						throw (std::runtime_error(""));
 					}
-					
+
 				}
 			}
 		}
-		catch (std::exception)
+		catch (std::exception &exc)
 		{
 			*ch = backup;
 			return ;
