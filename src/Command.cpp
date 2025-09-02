@@ -475,12 +475,16 @@ void PingCommand::execute(const Message &msg, int fd)
 
 void PassCommand::execute(const Message &msg, int fd)
 {
-	if (irc->checkPassword()) {
+	if (irc->checkPassword())
 		return ;
-	} else if (!msg.params.empty() && irc->checkPassword(msg.params[0])) {
+	else if (!msg.params.empty() && irc->checkPassword(msg.params[0]))
+	{
+		irc->getClient(fd).authenticate();
 		return ;
-	} else {
-		sendResponse("464 :Incorrect password", fd);
+	}
+	else
+	{
+		sendResponse("464 " + irc->getClient(fd).getUser()->getNick() + " :Incorrect password", fd);
 		irc->removeClient(fd);
 	}
 }

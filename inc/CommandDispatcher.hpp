@@ -18,7 +18,7 @@ class	CommandDispatcher
 	public:
 		CommandDispatcher(void);
 
-		void	dispatch(const std::unique_ptr<Message> &msg, int fd);
+		bool	dispatch(const std::unique_ptr<Message> &msg, int fd);
 
 	private:
 		std::unordered_map<std::string, std::unique_ptr<ICommand>> _handlers;

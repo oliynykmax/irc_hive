@@ -29,7 +29,7 @@ class Client {
 		std::function<void(int)> _ERR	=	nullptr;
 		std::function<void(int)> _HUP	= 	nullptr;
 		User* _self;
-
+		bool _authenticated = false;
 	public:
 		explicit Client(int fd);
 		~Client();
@@ -41,4 +41,6 @@ class Client {
 		void setHandler(uint32_t eventType, std::function<void(int)> handler);
 		std::function<void(int)>& getHandler(uint32_t eventType);
 		User* getUser(void);
+		void authenticate(void);
+		bool isAuthenticated(void) const;
 };
