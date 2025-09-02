@@ -16,6 +16,12 @@ const std::string& Channel::getName(void) const {
 	return _name;
 }
 
+void Channel::unsetMode(std::string umode)  {
+	for (char c : umode) {
+		_mode.erase(c);
+	}
+}
+
 const set<char>& Channel::getMode(void) const {
 	return _mode;
 }
