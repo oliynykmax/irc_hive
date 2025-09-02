@@ -43,6 +43,7 @@ class Channel {
 		const std::string& getTopic(void) const;
 		const size_t& getLimit(void) const;
 		void setMode(std::string mode);
+		void unsetMode(std::string umode);
 		bool setTopic(int fd, std::string topic);
 		bool checkUser(int fd);
 		bool addUser(int fd);
