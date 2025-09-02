@@ -33,7 +33,8 @@ bool	CommandDispatcher::dispatch(const std::unique_ptr<Message> &msg, int fd)
 		{
 			if (!irc->checkPassword() &&
 				!irc->getClient(fd).isAuthenticated() &&
-				msg->command != "PASS")
+				msg->command != "PASS" &&
+				msg->command != "CAP")
 			{
 				std::string response("464 ");
 				response.append(irc->getClient(fd).getUser()->getNick());
