@@ -24,3 +24,11 @@ string User::getNick(void) const {
 string User::getUser(void) const {
 	return _user;
 }
+
+Channel* User::getChannel(string needle) {
+	for (auto channel : _channels) {
+		if (channel->getName() == needle)
+			return channel;
+	}
+	return nullptr;
+}

@@ -246,14 +246,27 @@ void TopicCommand::execute(const Message &msg, int fd)
 
 void ModeCommand::execute(const Message &msg, int fd)
 {
-	//sendResponse("472 :Unknown mode", fd);
 	auto channel = [&]()
 	{
-		// if user not operator on channel;
-		// sendResponse("482 :Channel operator privileges required", fd);
+		Channel *ch = irc->getClient(fd).getUser()->getChannel(msg.params[0]);
+		if (!ch)
+		{
+			sendResponse("442 :You're not on the channel", fd);
+			return ;
+		}
 		if (msg.params.size() < 2)
 		{
-			sendResponse("461 :Need more parameters", fd);
+			std::string response("324 " + msg.params[0] + " ");
+			std::string modes("+");
+			for (char c : ch->getMode())
+				modes.push_back(c);
+			response.append(modes);
+			sendResponse(response, fd);
+			return ;
+		}
+		if (!ch->getOperators().contains(fd))
+		{
+			sendResponse("482 :Channel operator privileges required", fd);
 			return ;
 		}
 		std::string input = msg.params[1];
@@ -304,7 +317,7 @@ void ModeCommand::execute(const Message &msg, int fd)
 			}
 		}
 		std::string supported = "itkol";
-		std::string requireParam = "kl";
+		std::string requireParam = "klo";
 		size_t paramsNeeded = 2;
 		for (auto c = enable.begin(); c != enable.end(); ++c)
 		{
@@ -331,7 +344,15 @@ void ModeCommand::execute(const Message &msg, int fd)
 			sendResponse("461 :Need more parameters", fd);
 			return ;
 		}
-		std::cout << "[DEBUG] Enabled channel modes " << enable << " for " << msg.params[0] << std::endl;
+		ch->setMode(enable);
+		int index = 2;
+		for (auto c : enable)
+		{
+			if (c == 'k')
+			{
+				ch->
+			}
+		}
 		std::cout << "[DEBUG] Disabled channel modes " << disable << " for " << msg.params[0] << std::endl;
 	};
 

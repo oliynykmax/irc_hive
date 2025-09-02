@@ -12,6 +12,10 @@ void Channel::setPassword(std::string passwd) {
 	_passwd = passwd;
 }
 
+const std::string& Channel::getName(void) const {
+	return _name;
+}
+
 const set<char>& Channel::getMode(void) const {
 	return _mode;
 }

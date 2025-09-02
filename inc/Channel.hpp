@@ -37,6 +37,7 @@ class Channel {
 		explicit Channel(std::string channel);
 		bool isEmpty(void) const;
 		void setPassword(std::string passwd);
+		const std::string& getName(void) const;
 		const set<char>& getMode(void) const;
 		const set<int>& getUsers(void) const;
 		const set<int>& getOperators(void) const;
