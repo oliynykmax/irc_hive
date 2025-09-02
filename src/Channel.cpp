@@ -28,6 +28,10 @@ const std::string& Channel::getTopic(void) const {
 	return _topic;
 }
 
+const size_t& Channel::getLimit(void) const {
+	return _limit;
+}
+
 void Channel::setMode(std::string mode) {
 	for (char c : mode) {
 		_mode.emplace(c);
