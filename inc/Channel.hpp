@@ -2,6 +2,7 @@
 #include "User.hpp"
 #include "Server.hpp"
 //#include "Operator.hpp"
+#include <cstddef>
 #include <set>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -43,6 +44,7 @@ class Channel {
 		const set<int>& getOperators(void) const;
 		const std::string& getTopic(void) const;
 		const size_t& getLimit(void) const;
+		void setLimit(size_t limit);
 		void setMode(std::string mode);
 		void unsetMode(std::string umode);
 		bool setTopic(int fd, std::string topic);
