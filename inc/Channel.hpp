@@ -29,6 +29,7 @@ class Channel {
 		std::string _name;
 		std::string _passwd = "";
 		std::string _topic;
+		size_t _limit;
 		set<int> _users;
 		set<int> _oper;
 		set<char> _mode;
@@ -40,6 +41,7 @@ class Channel {
 		const set<int>& getUsers(void) const;
 		const set<int>& getOperators(void) const;
 		const std::string& getTopic(void) const;
+		const size_t& getLimit(void) const;
 		void setMode(std::string mode);
 		bool setTopic(int fd, std::string topic);
 		bool checkUser(int fd);

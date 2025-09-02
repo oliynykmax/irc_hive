@@ -87,17 +87,19 @@ void JoinCommand::execute(const Message &msg, int fd)
 		return ;
 	}
 	const auto &modes = channel.getMode();
-	if (modes.find('l') != modes.end())
+	if (modes.contains('l') &&
+			(channel.getUsers().size() +
+			 channel.getOperators().size()) >= channel.getLimit())
 	{
 		sendResponse("471 :Cannot join channel (Channel is full)", fd);
 		return ;
 	}
-	if (modes.find('i') != modes.end())
+	if (modes.contains('i'))
 	{
 		sendResponse("473 :Cannot join an invite only channel", fd);
 		return ;
 	}
-	if (modes.find('k') != modes.end())
+	if (modes.contains('k'))
 	{
 		if (msg.params.size() < 2 || !channel.joinWithPassword(fd, msg.params[1]))
 		{
