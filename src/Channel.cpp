@@ -16,12 +16,6 @@ const std::string& Channel::getName(void) const {
 	return _name;
 }
 
-void Channel::unsetMode(std::string umode)  {
-	for (char c : umode) {
-		_mode.erase(c);
-	}
-}
-
 const set<char>& Channel::getMode(void) const {
 	return _mode;
 }
@@ -48,7 +42,17 @@ void Channel::setLimit(size_t limit) {
 
 void Channel::setMode(std::string mode) {
 	for (char c : mode) {
+		if (c == 'o')
+			continue;
 		_mode.emplace(c);
+	}
+}
+
+void Channel::unsetMode(std::string umode)  {
+	for (char c : umode) {
+		if (c == 'o')
+			continue;
+		_mode.erase(c);
 	}
 }
 
@@ -120,14 +124,12 @@ std::string Channel::userList(void) const {
 	return ret;
 }
 
-bool Channel::makeOperator(int op, int newOp) {
-	if (_oper.contains(op) && _users.contains(newOp)) {
-		_users.erase(newOp);
-		_oper.emplace(newOp);
-		return true;
-	} else {
+bool Channel::makeOperator(int newOp) {
+	if (_oper.contains(newOp))
 		return false;
-	}
+	_users.erase(newOp);
+	_oper.emplace(newOp);
+	return true;
 }
 
 bool Channel::kick(int op, int user) {

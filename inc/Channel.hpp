@@ -52,7 +52,7 @@ class Channel {
 		bool addUser(int fd);
 		bool joinWithPassword(int fd, std::string passwd);
 		std::string userList(void) const;
-		bool makeOperator(int op, int newOp);
+		bool makeOperator(int newOp);
 		bool kick(int op, int user);
 		bool message(int fd, std::string msg);
 };
