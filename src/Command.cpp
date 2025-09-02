@@ -484,7 +484,7 @@ void PassCommand::execute(const Message &msg, int fd)
 	}
 	else
 	{
-		sendResponse("464 :Incorrect password", fd);
+		sendResponse("464 " + irc->getClient(fd).getUser()->getNick() + " :Incorrect password", fd);
 		irc->removeClient(fd);
 	}
 }
