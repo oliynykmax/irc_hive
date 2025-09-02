@@ -353,7 +353,17 @@ void ModeCommand::execute(const Message &msg, int fd)
 				if (c == 'k')
 					ch->setPassword(msg.params[index++]);
 				if (c == 'l')
-					ch->setLimit(std::stoul(msg.params[index++]));
+				{
+					try
+					{
+						ch->setLimit(std::stoul(msg.params[index++]));
+					}
+					catch (std::exception &e)
+					{
+						sendResponse("472 :Unknown mode", fd);
+						throw ;
+					}
+				}
 				if (c == 'o')
 				{
 					auto user = ch->getUsers().begin();
@@ -380,7 +390,7 @@ void ModeCommand::execute(const Message &msg, int fd)
 				}
 			}
 		}
-		catch (std::exception)
+		catch (std::exception &e)
 		{
 			*ch = backup;
 			return ;
