@@ -35,7 +35,7 @@ void	CommandDispatcher::dispatch(const std::unique_ptr<Message> &msg, int fd)
 				!irc->getClient(fd).isAuthenticated() &&
 				msg->command != "PASS")
 			{
-				std::string response("451 :Not registered\r\n");
+				std::string response("464 :Password incorrect\r\n");
 				send(fd, response.c_str(), response.size(), 0);
 				irc->removeClient(fd);
 				return ;
