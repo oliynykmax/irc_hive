@@ -42,6 +42,10 @@ const size_t& Channel::getLimit(void) const {
 	return _limit;
 }
 
+void Channel::setLimit(size_t limit) {
+	_limit = limit;
+}
+
 void Channel::setMode(std::string mode) {
 	for (char c : mode) {
 		_mode.emplace(c);
