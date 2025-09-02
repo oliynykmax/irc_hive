@@ -349,11 +349,13 @@ void ModeCommand::execute(const Message &msg, int fd)
 		for (auto c : enable)
 		{
 			if (c == 'k')
-			{
-				ch->
-			}
+				ch->setPassword(msg.params[index++]);
+			if (c == 'l')
+				ch->setLimit(msg.params[index++]);
+			if (c == 'o')
+				ch->makeOperator();
 		}
-		std::cout << "[DEBUG] Disabled channel modes " << disable << " for " << msg.params[0] << std::endl;
+		ch->unsetMode(disable);
 	};
 
 	auto user = [&]()
