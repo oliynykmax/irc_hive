@@ -2,6 +2,7 @@
 #include "User.hpp"
 #include "Server.hpp"
 //#include "Operator.hpp"
+#include <cstddef>
 #include <set>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -37,18 +38,21 @@ class Channel {
 		explicit Channel(std::string channel);
 		bool isEmpty(void) const;
 		void setPassword(std::string passwd);
+		const std::string& getName(void) const;
 		const set<char>& getMode(void) const;
 		const set<int>& getUsers(void) const;
 		const set<int>& getOperators(void) const;
 		const std::string& getTopic(void) const;
 		const size_t& getLimit(void) const;
+		void setLimit(size_t limit);
 		void setMode(std::string mode);
+		void unsetMode(std::string umode);
 		bool setTopic(int fd, std::string topic);
 		bool checkUser(int fd);
 		bool addUser(int fd);
 		bool joinWithPassword(int fd, std::string passwd);
 		std::string userList(void) const;
-		bool makeOperator(int op, int newOp);
+		bool makeOperator(int newOp);
 		bool kick(int op, int user);
 		bool message(int fd, std::string msg);
 };

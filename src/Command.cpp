@@ -246,14 +246,28 @@ void TopicCommand::execute(const Message &msg, int fd)
 
 void ModeCommand::execute(const Message &msg, int fd)
 {
-	//sendResponse("472 :Unknown mode", fd);
 	auto channel = [&]()
 	{
-		// if user not operator on channel;
-		// sendResponse("482 :Channel operator privileges required", fd);
+		Channel *ch = irc->getClient(fd).getUser()->getChannel(msg.params[0]);
+		Channel backup = *ch;
+		if (!ch)
+		{
+			sendResponse("442 :You're not on the channel", fd);
+			return ;
+		}
 		if (msg.params.size() < 2)
 		{
-			sendResponse("461 :Need more parameters", fd);
+			std::string response("324 " + msg.params[0] + " ");
+			std::string modes("+");
+			for (char c : ch->getMode())
+				modes.push_back(c);
+			response.append(modes);
+			sendResponse(response, fd);
+			return ;
+		}
+		if (!ch->getOperators().contains(fd))
+		{
+			sendResponse("482 :Channel operator privileges required", fd);
 			return ;
 		}
 		std::string input = msg.params[1];
@@ -304,7 +318,7 @@ void ModeCommand::execute(const Message &msg, int fd)
 			}
 		}
 		std::string supported = "itkol";
-		std::string requireParam = "kl";
+		std::string requireParam = "klo";
 		size_t paramsNeeded = 2;
 		for (auto c = enable.begin(); c != enable.end(); ++c)
 		{
@@ -331,8 +345,58 @@ void ModeCommand::execute(const Message &msg, int fd)
 			sendResponse("461 :Need more parameters", fd);
 			return ;
 		}
-		std::cout << "[DEBUG] Enabled channel modes " << enable << " for " << msg.params[0] << std::endl;
-		std::cout << "[DEBUG] Disabled channel modes " << disable << " for " << msg.params[0] << std::endl;
+		int index = 2;
+		try
+		{
+			for (auto c : enable)
+			{
+				if (c == 'k')
+					ch->setPassword(msg.params[index++]);
+				if (c == 'l')
+				{
+					try
+					{
+						ch->setLimit(std::stoul(msg.params[index++]));
+					}
+					catch (std::exception &e)
+					{
+						sendResponse("472 :Unknown mode", fd);
+						throw ;
+					}
+				}
+				if (c == 'o')
+				{
+					auto user = ch->getUsers().begin();
+					while (user != ch->getUsers().end())
+					{
+						if (irc->getClient(*user).getUser()->getNick() ==
+								msg.params[index])
+						{
+							ch->makeOperator(*user);
+							index++;
+							break ;
+						}
+						++user;
+					}
+					if (user == ch->getUsers().end())
+					{
+						sendResponse("441 " +
+								irc->getClient(fd).getUser()->getNick() +
+								" " + msg.params[0] +
+								" :They aren't on that channel", fd);
+						throw (std::runtime_error(""));
+					}
+
+				}
+			}
+		}
+		catch (std::exception &e)
+		{
+			*ch = backup;
+			return ;
+		}
+		ch->setMode(enable);
+		ch->unsetMode(disable);
 	};
 
 	auto user = [&]()
