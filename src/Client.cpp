@@ -97,3 +97,11 @@ std::function<void(int)>& Client::getHandler(uint32_t eventType) {
 			throw std::runtime_error("Client::getHandler: Error; invalid eventType");
 	}
 }
+
+void Client::authenticate(void) {
+	_authenticated = true;
+}
+
+bool Client::isAuthenticated(void) const {
+	return _authenticated;
+}
