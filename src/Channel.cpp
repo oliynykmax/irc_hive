@@ -16,6 +16,18 @@ const set<char>& Channel::getMode(void) const {
 	return _mode;
 }
 
+const set<int>& Channel::getUsers(void) const {
+	return _users;
+}
+
+const set<int>& Channel::getOperators(void) const {
+	return _oper;
+}
+
+const std::string& Channel::getTopic(void) const {
+	return _topic;
+}
+
 void Channel::setMode(std::string mode) {
 	for (char c : mode) {
 		_mode.emplace(c);
@@ -79,16 +91,14 @@ std::string Channel::userList(void) const {
 	std::string ret;
 
 	for (auto users : _users) {
-		ret += "@";
 		ret += irc->getClient(users).getUser()->getNick();
 		ret += " ";
 	}
 	for (auto users : _oper) {
-		ret += "@";
 		ret += irc->getClient(users).getUser()->getNick();
 		ret += " ";
 	}
-	ret.erase(ret.end());
+	ret.erase(ret.end() - 1);
 	return ret;
 }
 
