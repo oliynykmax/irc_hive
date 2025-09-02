@@ -12,6 +12,12 @@ void Channel::setPassword(std::string passwd) {
 	_passwd = passwd;
 }
 
+void Channel::unsetMode(std::string umode)  {
+	for (char c : umode) {
+		_mode.erase(c);
+	}
+}
+
 const set<char>& Channel::getMode(void) const {
 	return _mode;
 }
