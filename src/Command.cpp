@@ -450,14 +450,10 @@ void ModeCommand::execute(const Message &msg, int fd)
 
 void QuitCommand::execute(const Message &msg, int fd)
 {
-	std::cout << "[DEBUG] Broadcasting to all user\'s channels:" << std::endl;
-	std::cout << "user " << fd << " QUIT: ";
 	if (!msg.params.empty())
-		std::cout << msg.params[0] << std::endl;
+		irc->getClient(fd).getUser()->quit(fd, msg.params[0]);
 	else
-		std::cout << "Client Quit" << std::endl;
-	irc->removeClient(fd);
-	std::cout << "[DEBUG] Removing user " << fd << " from channels ETC ETC" << std::endl;
+		irc->getClient(fd).getUser()->quit(fd, "Client quit");
 }
 
 void CapCommand::execute(const Message &msg, int fd)
