@@ -38,6 +38,7 @@ class Server {
 		*/
 		Channel& addChannel(std::string name);
 		void removeChannel(std::string name);
+		bool channelExists(std::string name);
 		void removeClient(const int fd);
 		void registerHandler(const int fd, uint32_t eventType, std::function<void(int)> handler);
 		/*
