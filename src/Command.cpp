@@ -158,20 +158,31 @@ void PrivmsgCommand::execute(const Message &msg, int fd)
 		sendResponse("412 :No text to send", fd);
 		return ;
 	}
-	// if client not registered:
-	//  sendResponse("451 :You have not registered", fd);
 	if (msg.params[0][0] == '#')
 	{
-		std::cout << "[DEBUG] Sending message \"" << msg.params[1] << "\" ";
-		std::cout << "to channel " << msg.params[0] << " if found" << std::endl;
+		Channel *ch = irc->getClient(fd).getUser()->getChannel(msg.params[0]);
+		if (!ch)
+		{
+			sendResponse("442 :You're not on the channel", fd);
+			return ;
+		}
+		if (!ch->message(fd, msg.params[1]))
+			throw (std::runtime_error("Send() failed in PRIVMSG #channel"));
 	}
 	else
 	{
-		std::cout << "[DEBUG] Sending message \"" << msg.params[1] << "\" ";
-		std::cout << "to user " << msg.params[0] << " if found" << std::endl;
+		for (auto client : irc->getClients())
+		{
+			if (client.second.getUser()->getNick() == msg.params[0])
+			{
+				std::string message = ":" + client.second.getUser()->getNick() +
+					" PRIVMSG " + msg.params[1] + "\r\n";
+				send(client.first, message.c_str(), message.size(), 0);
+				return ;
+			}
+		}
+		sendResponse("401 :No such nick", fd);
 	}
-	// if target not found
-	//  sendResponse("401 :No such nick/channel", fd);
 }
 
 void KickCommand::execute(const Message &msg, int fd)
