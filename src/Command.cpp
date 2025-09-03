@@ -216,19 +216,36 @@ void InviteCommand::execute(const Message &msg, int fd)
 		sendResponse("461 :Missing parameters", fd);
 		return ;
 	}
-	bool found = false;
-	for (auto client : irc->getClients())
-	{
-		if (client.second.getUser()->getNick() == msg.params[0])
-		{
-			found = true;
-			break ;
-		}
-	}
-	if (!found)
-	{
-		sendResponse("401 :No such nick", fd);
-		return ;
+	auto ret = irc->getClient(fd).getUser()->invite(fd, msg.params[0], msg.params[1]);
+	switch (ret) {
+	// bool found = false;
+	// for (auto client : irc->getClients())
+	// {
+	// 	if (client.second.getUser()->getNick() == msg.params[0])
+	// 	{
+	// 		found = true;
+	// 		break ;
+	// 	}
+	// }
+	// if (!found)
+	// {
+		case -1:
+			sendResponse("TODO :Not yet implemented", fd);
+		case 401:
+			sendResponse("401 :No such nick", fd);
+			return ;
+		case 482:
+			sendResponse("482 :You're not a channel operator", fd);
+			return ;
+		case -443:
+			sendResponse("443 :User already on channel", fd);
+			return ;
+		case 443:
+			sendResponse("443 :You cannot invite yourself", fd);
+			return ;
+		default:
+			sendResponse("TODO :Actual invite syntax", ret);
+			sendResponse("341 :Invitation send", fd);
 	}
 	// if not channel op
 	//	sendResponse("482 :You're not a channel operator", fd);
@@ -236,7 +253,7 @@ void InviteCommand::execute(const Message &msg, int fd)
 	//	sendResponse("443 :User already on channel", fd);
 	// if inviting yourself
 	//	sendResponse("443 :You cannot invite yourself", fd);
-	sendResponse("341 :Invitation send", fd);
+
 }
 
 void TopicCommand::execute(const Message &msg, int fd)
