@@ -50,9 +50,10 @@ class Channel {
 		bool setTopic(int fd, std::string topic);
 		bool checkUser(int fd);
 		bool addUser(int fd);
+		void removeUser(int fd, std::string msg = "");
 		bool joinWithPassword(int fd, std::string passwd);
 		std::string userList(void) const;
 		bool makeOperator(int newOp);
 		bool kick(int op, int user);
-		bool message(int fd, std::string msg);
+		bool message(int fd, std::string msg, std::string type);
 };

@@ -1,5 +1,6 @@
 #include "Channel.hpp"
 #include "Operator.hpp"
+#include <sys/socket.h>
 
 Channel::Channel(std::string channel) : _name(channel) {
 }
@@ -99,6 +100,29 @@ bool Channel::addUser(int user) {
 	return false;
 }
 
+void Channel::removeUser(int fd, std::string msg) {
+	if (_users.contains(fd)) {
+		_users.erase(fd);
+		message(fd, msg, "QUIT");
+	} else if (_oper.contains(fd)) {
+		_oper.erase(fd);
+		if  (_oper.empty()) {
+			if (_users.empty()) {
+					irc->removeChannel(_name);
+			} else {
+				auto user = _users.begin();
+				_oper.emplace(*user);
+				_users.erase(*user);
+				message(fd, msg, "QUIT");
+			}
+		} else {
+			message(fd, msg, "QUIT");
+		}
+	} else {
+		return ;
+	}
+}
+
 bool Channel::joinWithPassword(int fd, std::string passwd) {
 	if (passwd == _passwd) {
 		_users.emplace(fd);
@@ -117,6 +141,7 @@ std::string Channel::userList(void) const {
 		ret += " ";
 	}
 	for (auto users : _oper) {
+		ret += '@';
 		ret += irc->getClient(users).getUser()->getNick();
 		ret += " ";
 	}
@@ -141,8 +166,8 @@ bool Channel::kick(int op, int user) {
 	}
 }
 
-bool Channel::message(int user, std::string msg) {
-	std::string message = ":" + irc->getClient(user).getUser()->getNick() + " PRIVMSG " + _name + " :" + msg + "\r\n";
+bool Channel::message(int user, std::string msg, std::string type) {
+	std::string message = ":" + irc->getClient(user).getUser()->getNick() + " " + type + " " + _name + " :" + msg + "\r\n";
 
 	for (auto users : _users) {
 		if (users == user)
