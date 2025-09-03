@@ -94,6 +94,12 @@ class	WhoisCommand : public ICommand
 		void	execute(const Message &msg, int fd) override;
 };
 
+class	WhoCommand : public ICommand
+{
+	public:
+		void	execute(const Message &msg, int fd) override;
+};
+
 class	PingCommand : public ICommand
 {
 	public:
