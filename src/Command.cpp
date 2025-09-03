@@ -231,6 +231,7 @@ void InviteCommand::execute(const Message &msg, int fd)
 	// {
 		case -1:
 			sendResponse("TODO :Not yet implemented", fd);
+			return ;
 		case 401:
 			sendResponse("401 :No such nick", fd);
 			return ;
