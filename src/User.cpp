@@ -40,7 +40,9 @@ int User::invite(int fd, string nick, string name) {
 }
 
 void User::setNick(string name) {
+	irc->removeNick(_nick);
 	_nick = name;
+	irc->addNick(name);
 }
 
 void User::setUser(string name) {
