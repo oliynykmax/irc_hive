@@ -43,6 +43,18 @@ void Server::removeClient(const int fd) {
 	close(fd);
 }
 
+void Server::addNick(std::string nick) {
+	_nicks.emplace(nick);
+}
+
+void Server::removeNick(std::string nick) {
+	_nicks.erase(nick);
+}
+
+bool Server::nickReserved(std::string nick) {
+	return _nicks.contains(nick);
+}
+
 void Server::_reloadHandler(Client &client) const {
 	uint32_t event = 0;
 	struct epoll_event ev{};

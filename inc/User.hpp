@@ -17,6 +17,7 @@ class User {
 	public:
 		void join(Channel *chan);
 		void quit(int fd, std::string msg);
+		int invite(int fd, std::string nick, std::string name);
 		void setNick(string name);
 		void setUser(string name);
 		string getNick(void) const;

@@ -18,9 +18,10 @@ constexpr static const std::array<uint32_t, 6> eventTypes{EPOLLIN, EPOLLOUT, EPO
 
 class Server {
 	private:
-		std::map<std::string, class Channel> _channels{};
 		std::unordered_map<int, class Client> _clients{};
+		std::map<std::string, class Channel> _channels{};
 		std::vector<epoll_event> _events{};
+		std::set<std::string> _nicks{};
 		std::time_t _startTime;
 		const int _fd;
 		const int _max_events = 100;
@@ -36,10 +37,13 @@ class Server {
 		* @return Reference either to already existing Channel with the given name
 		* or newly created one.
 		*/
+		void removeClient(const int fd);
 		Channel& addChannel(std::string name);
 		void removeChannel(std::string name);
 		bool channelExists(std::string name);
-		void removeClient(const int fd);
+		void addNick(std::string nick);
+		void removeNick(std::string nick);
+		bool nickReserved(std::string nick);
 		void registerHandler(const int fd, uint32_t eventType, std::function<void(int)> handler);
 		/*
 		* @brief Converts seconds the epoch from Server creation to calendar time
