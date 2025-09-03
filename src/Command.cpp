@@ -166,7 +166,7 @@ void PrivmsgCommand::execute(const Message &msg, int fd)
 			sendResponse("442 :You're not on the channel", fd);
 			return ;
 		}
-		if (!ch->message(fd, msg.params[1]))
+		if (!ch->message(fd, msg.params[1], "PRIVMSG"))
 			throw (std::runtime_error("Send() failed in PRIVMSG #channel"));
 	}
 	else
