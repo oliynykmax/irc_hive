@@ -239,8 +239,8 @@ void TopicCommand::execute(const Message &msg, int fd)
 		sendResponse("461 :Missing parameters", fd);
 		return ;
 	}
-	// if channel doesn't exist
-	//  sendResponse("403 :Channel doesn't exist", fd);
+	if (!irc->channelExists(msg.params[0]))
+		sendResponse("403 :Channel doesn't exist", fd);
 	Channel *ch = irc->getClient(fd).getUser()->getChannel(msg.params[0]);
 	if (!ch)
 	{
