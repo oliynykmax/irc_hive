@@ -29,6 +29,10 @@ void Server::removeChannel(std::string name) {
 	_channels.erase(name);
 }
 
+bool Server::channelExists(std::string name) {
+	return _channels.contains(name);
+}
+
 void Server::addClient(Client& client) {
 	_clients.try_emplace(client._fd, client);
 }
