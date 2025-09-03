@@ -9,6 +9,13 @@ void User::join(Channel *chan) {
 	_channels.push_back(chan);
 }
 
+void User::quit(int fd, std::string msg) {
+	for (auto channels : _channels) {
+		channels->removeUser(fd, msg);
+	}
+	irc->removeClient(fd);
+}
+
 void User::setNick(string name) {
 	_nick = name;
 }
