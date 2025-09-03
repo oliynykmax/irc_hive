@@ -473,6 +473,39 @@ void WhoisCommand::execute(const Message &msg, int fd)
 	sendResponse("318 " + nick + " :End of WHOIS list", fd);
 }
 
+void WhoCommand::execute(const Message &msg, int fd)
+{
+	if (msg.params.empty())
+		sendResponse("461 :Not enough parameters", fd);
+	Channel *ch = irc->getClient(fd).getUser()->getChannel(msg.params[0]);
+	Channel backup = *ch;
+	if (!ch)
+	{
+		sendResponse("442 :You're not on the channel", fd);
+		return ;
+	}
+	const std::string &nick = irc->getClient(fd).getUser()->getNick();
+	for (auto id : ch->getUsers())
+	{
+		const User *user = irc->getClient(id).getUser();
+		std::string who("352 " + nick + " " + msg.params[0]);
+		who.append(" " + user->getUser() + " hostname ircserv " + user->getNick() + " H");
+		who.append("\r\n");
+		send(fd, who.c_str(), who.size(), 0);
+	}
+	for (auto id : ch->getOperators())
+	{
+		const User *user = irc->getClient(id).getUser();
+		std::string who("352 " + nick + " " + msg.params[0]);
+		who.append(" " + user->getUser() + " hostname ircserv " + user->getNick() + " H");
+		who.append("@\r\n");
+		send(fd, who.c_str(), who.size(), 0);
+	}
+	std::string endofwho("315 " + nick + " " +
+		msg.params[0] + " :End of /WHO list.\r\n");
+	sendResponse(endofwho, fd);
+}
+
 void PingCommand::execute(const Message &msg, int fd)
 {
 	if (msg.params.empty())
