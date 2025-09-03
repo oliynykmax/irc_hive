@@ -216,20 +216,27 @@ void InviteCommand::execute(const Message &msg, int fd)
 		sendResponse("461 :Missing parameters", fd);
 		return ;
 	}
-	// if nick not recognized
-	//	sendResponse("401 :No such nick", fd);
-	// if channel not found
-	//	sendResponse("403 :No such channel", fd);
+	bool found = false;
+	for (auto client : irc->getClients())
+	{
+		if (client.second.getUser()->getNick() == msg.params[0])
+		{
+			found = true;
+			break ;
+		}
+	}
+	if (!found)
+	{
+		sendResponse("401 :No such nick", fd);
+		return ;
+	}
 	// if not channel op
 	//	sendResponse("482 :You're not a channel operator", fd);
 	// if user already on channel
 	//	sendResponse("443 :User already on channel", fd);
 	// if inviting yourself
 	//	sendResponse("443 :You cannot invite yourself", fd);
-	// success
-	//	sendResponse("341 :Invitation send", fd);
-	std::cout << "[DEBUG] User " << fd << " succesfully invited ";
-	std::cout << msg.params[0] << " to " << msg.params[1] << std::endl;
+	sendResponse("341 :Invitation send", fd);
 }
 
 void TopicCommand::execute(const Message &msg, int fd)
