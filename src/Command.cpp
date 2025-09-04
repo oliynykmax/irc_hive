@@ -224,20 +224,17 @@ void KickCommand::execute(const Message &msg, int fd)
 	if (!target)
 		return sendResponse("441 :They aren't on that channel", fd);
 
-	ch->kick(fd, target->_fd);
-
-	std::string response = "KICK " + msg.params[0] + " " + msg.params[1];
 	std::string nick = ":" + irc->getClient(fd).getUser()->getNick();
+	std::string response = nick + " KICK " + msg.params[0] + " " + msg.params[1];
 	if (msg.params.size() < 3)
 		response.append(" " + nick);
 	else
 		response.append(" :" + msg.params[2]);
-	sendResponse(response, fd);
-	response.insert(0, ":" + nick + " ");
 	for (auto user : ch->getUsers())
 		sendResponse(response, user);
 	for (auto user : ch->getOperators())
 		sendResponse(response, user);
+	ch->kick(fd, target->_fd);
 }
 
 void InviteCommand::execute(const Message &msg, int fd)
