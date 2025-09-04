@@ -208,14 +208,14 @@ void KickCommand::execute(const Message &msg, int fd)
 		return sendResponse("482 :You're not a channel operator", fd);
 	for (auto client : ch->getOperators())
 	{
-		if (irc->getClient(fd).getUser()->getNick() == msg.params[1])
+		if (irc->getClient(client).getUser()->getNick() == msg.params[1])
 			return sendResponse("482 :You can't kick an operator", fd);
 	}
 
 	Client *target = nullptr;
 	for (auto client : ch->getUsers())
 	{
-		if (irc->getClient(fd).getUser()->getNick() == msg.params[1])
+		if (irc->getClient(client).getUser()->getNick() == msg.params[1])
 		{
 			target = &irc->getClient(client);
 			break ;
@@ -229,15 +229,15 @@ void KickCommand::execute(const Message &msg, int fd)
 	std::string response = "KICK " + msg.params[0] + " " + msg.params[1];
 	std::string nick = ":" + irc->getClient(fd).getUser()->getNick();
 	if (msg.params.size() < 3)
-		response.append(nick);
+		response.append(" " + nick);
 	else
-		response.append(":" + msg.params[2]);
+		response.append(" :" + msg.params[2]);
 	sendResponse(response, fd);
-	response.insert(0, nick + " ");
+	response.insert(0, ":" + nick + " ");
 	for (auto user : ch->getUsers())
-		send(user, response.c_str(), response.size(), 0);
+		sendResponse(response, user);
 	for (auto user : ch->getOperators())
-		send(user, response.c_str(), response.size(), 0);
+		sendResponse(response, user);
 }
 
 void InviteCommand::execute(const Message &msg, int fd)
