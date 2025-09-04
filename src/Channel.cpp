@@ -61,6 +61,9 @@ bool Channel::setTopic(int user, std::string topic) {
 	if(_oper.contains(user)) {
 		_topic = topic;
 		std::string message = ":" + irc->getClient(user).getUser()->getNick() + " TOPIC " + _name + " :" + topic + "\r\n";
+		auto bytes = send(user, message.data(), message.size(), 0);
+		if (bytes == -1)
+			return false;
 		for (auto users : _users) {
 			if (users == user)
 				continue;
