@@ -197,25 +197,44 @@ void PrivmsgCommand::execute(const Message &msg, int fd)
 void KickCommand::execute(const Message &msg, int fd)
 {
 	if (msg.params.size() < 2)
-	{
-		sendResponse("461 :Missing parameters", fd);
-		return ;
-	}
-	// if channel doesn't exist
-	//	sendResponse("403 :No such channel", fd);
-	// if user not on channel
-	//	sendResponse("442 :You're not on that channel", fd);
-	// if sender not channel op
-	//	sendResponse("482 :You're not a channel operator", fd);
-	// if target not on channel
-	//	sendResponse("441 :They aren't on that channel", fd);
-	// if target is op
-	//	sendResponse("482 :You can't kick an operator", fd);
+		return sendResponse("461 :Missing parameters", fd);
+	if (!irc->channelExists(msg.params[0]))
+		return sendResponse("403 :No such channel", fd);
 
-	// success
-	//	sendResponse("KICK <channel> <target> :message", fd);
-	std::cout << "[DEBUG] User " << fd << " succesfully kicked ";
-	std::cout << msg.params[0] <<  " from " << msg.params[1] << std::endl;
+	Channel *ch = irc->getClient(fd).getUser()->getChannel(msg.params[0]);
+	if (!ch)
+		return sendResponse("442 :You're not on that channel", fd);
+	if (!ch->getOperators().contains(fd))
+		return sendResponse("482 :You're not a channel operator", fd);
+	for (auto client : ch->getOperators())
+	{
+		if (irc->getClient(client).getUser()->getNick() == msg.params[1])
+			return sendResponse("482 :You can't kick an operator", fd);
+	}
+
+	Client *target = nullptr;
+	for (auto client : ch->getUsers())
+	{
+		if (irc->getClient(client).getUser()->getNick() == msg.params[1])
+		{
+			target = &irc->getClient(client);
+			break ;
+		}
+	}
+	if (!target)
+		return sendResponse("441 :They aren't on that channel", fd);
+
+	std::string nick = ":" + irc->getClient(fd).getUser()->getNick();
+	std::string response = nick + " KICK " + msg.params[0] + " " + msg.params[1];
+	if (msg.params.size() < 3)
+		response.append(" " + nick);
+	else
+		response.append(" :" + msg.params[2]);
+	for (auto user : ch->getUsers())
+		sendResponse(response, user);
+	for (auto user : ch->getOperators())
+		sendResponse(response, user);
+	ch->kick(fd, target->_fd);
 }
 
 void InviteCommand::execute(const Message &msg, int fd)

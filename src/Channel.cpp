@@ -210,6 +210,7 @@ void Channel::invite(int fd) {
 bool Channel::kick(int op, int user) {
 	if (_users.contains(user) && _oper.contains(op)) {
 		_users.erase(user);
+		irc->getClient(user).getUser()->exitChannel(_name);
 		return true;
 	} else {
 		return false;

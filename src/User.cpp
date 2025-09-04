@@ -39,3 +39,12 @@ Channel* User::getChannel(string needle) {
 	}
 	return nullptr;
 }
+
+void User::exitChannel(string needle) {
+	for (int idx = 0; _channels[idx]; idx++) {
+		if (_channels[idx]->getName() == needle) {
+			_channels.erase(_channels.begin() + idx);
+			break;
+		}
+	}
+}
