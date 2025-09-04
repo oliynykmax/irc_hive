@@ -515,7 +515,6 @@ void WhoCommand::execute(const Message &msg, int fd)
 	if (msg.params.empty())
 		sendResponse("461 :Not enough parameters", fd);
 	Channel *ch = irc->getClient(fd).getUser()->getChannel(msg.params[0]);
-	Channel backup = *ch;
 	if (!ch)
 	{
 		sendResponse("442 :You're not on the channel", fd);
