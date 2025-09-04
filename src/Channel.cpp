@@ -107,7 +107,7 @@ const std::string Channel::addUser(int user, std::string passwd) {
 		if (joinWithPassword(user, passwd))
 			;
 		else
-			ret = "475 " + _name + " :Cannot join channel (+i)";
+			ret = "475 " + _name + " :Cannot join channel (+k)";
 	else if (isEmpty()) {
 		_oper.emplace(user);
 		irc->getClient(user).getUser()->join(this);
