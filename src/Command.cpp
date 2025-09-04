@@ -81,34 +81,43 @@ void JoinCommand::execute(const Message &msg, int fd)
 		return ;
 	}
 	Channel &channel = irc->addChannel(msg.params[0]);
-	if (!channel.checkUser(fd))
-	{
-		sendResponse("443 :You are already on the channel", fd);
-		return ;
-	}
-	const auto &modes = channel.getMode();
-	if (modes.contains('l') &&
-			(channel.getUsers().size() +
-			 channel.getOperators().size()) >= channel.getLimit())
-	{
-		sendResponse("471 :Cannot join channel (Channel is full)", fd);
-		return ;
-	}
-	if (modes.contains('i'))
-	{
-		sendResponse("473 :Cannot join an invite only channel", fd);
-		return ;
-	}
-	if (modes.contains('k'))
-	{
-		if (msg.params.size() < 2 || !channel.joinWithPassword(fd, msg.params[1]))
-		{
-			sendResponse("475 :Incorrect channel key", fd);
-			return ;
-		}
-	}
+	std::string response;
+	if (msg.params.size() == 1)
+		response = channel.addUser(fd);
 	else
-		channel.addUser(fd);
+		response = channel.addUser(fd, msg.params[1]);
+	// if (!channel.checkUser(fd))
+	// {
+	// 	sendResponse("443 :You are already on the channel", fd);
+	// 	return ;
+	// }
+	// const auto &modes = channel.getMode();
+	// if (modes.contains('l') &&
+	// 		(channel.getUsers().size() +
+	// 		 channel.getOperators().size()) >= channel.getLimit())
+	// {
+	// 	sendResponse("471 :Cannot join channel (Channel is full)", fd);
+	// 	return ;
+	// }
+	// if (modes.contains('i'))
+	// {
+	// 	sendResponse("473 :Cannot join an invite only channel", fd);
+	// 	return ;
+	// }
+	// if (modes.contains('k'))
+	// {
+	// 	if (msg.params.size() < 2 || !channel.joinWithPassword(fd, msg.params[1]))
+	// 	{
+	// 		sendResponse("475 :Incorrect channel key", fd);
+	// 		return ;
+	// 	}
+	// }
+	// else
+	// 	channel.addUser(fd);
+	if (!response.empty()) {
+		sendResponse(response, fd);
+		return ;
+	}
 	const std::string &topic = channel.getTopic();
 	if (topic.empty())
 		sendResponse("331 " + nick + " " + msg.params[0] + " :No topic is set", fd);
@@ -212,24 +221,38 @@ void KickCommand::execute(const Message &msg, int fd)
 void InviteCommand::execute(const Message &msg, int fd)
 {
 	if (msg.params.size() < 2)
+		return sendResponse("461 :Missing parameters", fd);
+	Client *target = nullptr;
+	for (auto client : irc->getClients())
 	{
-		sendResponse("461 :Missing parameters", fd);
-		return ;
+		if (client.second.getUser()->getNick() == msg.params[0])
+		{
+			target = &(client.second);
+			break ;
+		}
 	}
-	// if nick not recognized
-	//	sendResponse("401 :No such nick", fd);
-	// if channel not found
-	//	sendResponse("403 :No such channel", fd);
-	// if not channel op
-	//	sendResponse("482 :You're not a channel operator", fd);
-	// if user already on channel
-	//	sendResponse("443 :User already on channel", fd);
-	// if inviting yourself
-	//	sendResponse("443 :You cannot invite yourself", fd);
-	// success
-	//	sendResponse("341 :Invitation send", fd);
-	std::cout << "[DEBUG] User " << fd << " succesfully invited ";
-	std::cout << msg.params[0] << " to " << msg.params[1] << std::endl;
+	if (!target)
+		return sendResponse("401 :No such nick", fd);
+	if (target->_fd == fd)
+		return sendResponse("443 :You cannot invite yourself", fd);
+	Channel *ch = irc->findChannel(msg.params[1]);
+	if (ch != nullptr)
+	{
+		if (!ch->getUsers().contains(fd) && !ch->getOperators().contains(fd))
+			return sendResponse("442: You're not on that channel", fd);
+		else if (ch->getMode().contains('i') && !ch->getOperators().contains(fd))
+			return sendResponse("482 :You're not a channel operator", fd);
+		else if (ch->getUsers().contains(target->_fd))
+			return sendResponse("443 :User already on channel", fd);
+		else if (ch->getOperators().contains(target->_fd))
+			return sendResponse("443 :User already on channel", fd);
+		else
+			ch->invite(target->_fd);
+	}
+	std::string invitation = ":" + irc->getClient(fd).getUser()->getNick();
+	invitation.append(" INVITE " + msg.params[0] + " :" + msg.params[1]);
+	sendResponse(invitation, target->_fd);
+	sendResponse("341 :Invitation send", fd);
 }
 
 void TopicCommand::execute(const Message &msg, int fd)
