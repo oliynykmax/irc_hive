@@ -233,16 +233,10 @@ void InviteCommand::execute(const Message &msg, int fd)
 			return sendResponse("442: You're not on that channel", fd);
 		if (ch->getMode().contains('i') && !ch->getOperators().contains(fd))
 			return sendResponse("482 :You're not a channel operator", fd);
-		for (auto user : ch->getUsers())
-		{
-			if (user == target->_fd)
-				return sendResponse("443 :User already on channel", fd);
-		}
-		for (auto user : ch->getOperators())
-		{
-			if (user == target->_fd)
-				return sendResponse("443 :User already on channel", fd);
-		}
+		if (ch->getUsers().contains(target->_fd))
+			return sendResponse("443 :User already on channel", fd);
+		if (ch->getOperators().contains(target->_fd))
+			return sendResponse("443 :User already on channel", fd);
 		// --> Add user to the channel's invite list
 	}
 	std::string invitation = ":" + irc->getClient(fd).getUser()->getNick();
