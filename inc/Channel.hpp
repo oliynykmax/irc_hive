@@ -33,7 +33,11 @@ class Channel {
 		size_t _limit;
 		set<int> _users;
 		set<int> _oper;
+		set<int> _invite;
 		set<char> _mode;
+		bool joinWithPassword(int fd, std::string passwd);
+		bool joinWithInvite(int fd, std::string passwd);
+		bool checkUser(int fd);
 	public:
 		explicit Channel(std::string channel);
 		bool isEmpty(void) const;
@@ -48,12 +52,11 @@ class Channel {
 		void setMode(std::string mode);
 		void unsetMode(std::string umode);
 		bool setTopic(int fd, std::string topic);
-		bool checkUser(int fd);
-		bool addUser(int fd);
+		const std::string addUser(int fd, std::string passwd = "");
 		void removeUser(int fd, std::string msg = "");
-		bool joinWithPassword(int fd, std::string passwd);
 		std::string userList(void) const;
 		bool makeOperator(int newOp);
 		bool kick(int op, int user);
+		void invite(int fd);
 		bool message(int fd, std::string msg, std::string type);
 };
