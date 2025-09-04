@@ -33,6 +33,13 @@ bool Server::channelExists(std::string name) {
 	return _channels.contains(name);
 }
 
+Channel* Server::findChannel(std::string name) {
+	auto ret = _channels.find(name);
+	if (ret == _channels.end())
+		return nullptr;
+	return &(ret->second);
+}
+
 void Server::addClient(Client& client) {
 	_clients.try_emplace(client._fd, client);
 }
