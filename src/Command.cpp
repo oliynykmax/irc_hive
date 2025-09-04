@@ -81,34 +81,43 @@ void JoinCommand::execute(const Message &msg, int fd)
 		return ;
 	}
 	Channel &channel = irc->addChannel(msg.params[0]);
-	if (!channel.checkUser(fd))
-	{
-		sendResponse("443 :You are already on the channel", fd);
-		return ;
-	}
-	const auto &modes = channel.getMode();
-	if (modes.contains('l') &&
-			(channel.getUsers().size() +
-			 channel.getOperators().size()) >= channel.getLimit())
-	{
-		sendResponse("471 :Cannot join channel (Channel is full)", fd);
-		return ;
-	}
-	if (modes.contains('i'))
-	{
-		sendResponse("473 :Cannot join an invite only channel", fd);
-		return ;
-	}
-	if (modes.contains('k'))
-	{
-		if (msg.params.size() < 2 || !channel.joinWithPassword(fd, msg.params[1]))
-		{
-			sendResponse("475 :Incorrect channel key", fd);
-			return ;
-		}
-	}
+	std::string response;
+	if (msg.params.size() == 1)
+		response = channel.addUser(fd);
 	else
-		channel.addUser(fd);
+		response = channel.addUser(fd, msg.params[1]);
+	// if (!channel.checkUser(fd))
+	// {
+	// 	sendResponse("443 :You are already on the channel", fd);
+	// 	return ;
+	// }
+	// const auto &modes = channel.getMode();
+	// if (modes.contains('l') &&
+	// 		(channel.getUsers().size() +
+	// 		 channel.getOperators().size()) >= channel.getLimit())
+	// {
+	// 	sendResponse("471 :Cannot join channel (Channel is full)", fd);
+	// 	return ;
+	// }
+	// if (modes.contains('i'))
+	// {
+	// 	sendResponse("473 :Cannot join an invite only channel", fd);
+	// 	return ;
+	// }
+	// if (modes.contains('k'))
+	// {
+	// 	if (msg.params.size() < 2 || !channel.joinWithPassword(fd, msg.params[1]))
+	// 	{
+	// 		sendResponse("475 :Incorrect channel key", fd);
+	// 		return ;
+	// 	}
+	// }
+	// else
+	// 	channel.addUser(fd);
+	if (!response.empty()) {
+		sendResponse(response, fd);
+		return ;
+	}
 	const std::string &topic = channel.getTopic();
 	if (topic.empty())
 		sendResponse("331 " + nick + " " + msg.params[0] + " :No topic is set", fd);
@@ -231,13 +240,14 @@ void InviteCommand::execute(const Message &msg, int fd)
 	{
 		if (!ch->getUsers().contains(fd) && !ch->getOperators().contains(fd))
 			return sendResponse("442: You're not on that channel", fd);
-		if (ch->getMode().contains('i') && !ch->getOperators().contains(fd))
+		else if (ch->getMode().contains('i') && !ch->getOperators().contains(fd))
 			return sendResponse("482 :You're not a channel operator", fd);
-		if (ch->getUsers().contains(target->_fd))
+		else if (ch->getUsers().contains(target->_fd))
 			return sendResponse("443 :User already on channel", fd);
-		if (ch->getOperators().contains(target->_fd))
+		else if (ch->getOperators().contains(target->_fd))
 			return sendResponse("443 :User already on channel", fd);
-		// --> Add user to the channel's invite list
+		else
+			ch->invite(target->_fd);
 	}
 	std::string invitation = ":" + irc->getClient(fd).getUser()->getNick();
 	invitation.append(" INVITE " + msg.params[0] + " :" + msg.params[1]);
