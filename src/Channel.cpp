@@ -92,7 +92,7 @@ bool Channel::checkUser(int user) {
 
 const std::string Channel::addUser(int user, std::string passwd) {
 	std::string ret;
-	std::string nick = irc->getClient(user).getUser()->getNick();
+	const std::string nick = irc->getClient(user).getUser()->getNick();
 	if (!checkUser(user))
 		ret = "443 " + nick + " "
 		 + _name + " :You are already on the channel";
@@ -102,9 +102,9 @@ const std::string Channel::addUser(int user, std::string passwd) {
 		if (_mode.contains('k') && joinWithInvite(user, passwd))
 			;
 		else if (_mode.contains('k'))
-			ret = "473 " + nick + " " + _name + " :Cannot join channel (+i)";
-		else
 			ret = "475 " + nick + " " + _name + " :Cannot join channel (+k)";
+		else
+			ret = "473 " + nick + " " + _name + " :Cannot join channel (+i)";
 	else if (_mode.contains('k'))
 		if (joinWithPassword(user, passwd))
 			;
