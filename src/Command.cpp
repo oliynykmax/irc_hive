@@ -248,33 +248,22 @@ void InviteCommand::execute(const Message &msg, int fd)
 void TopicCommand::execute(const Message &msg, int fd)
 {
 	if (msg.params.empty())
-	{
-		sendResponse("461 :Missing parameters", fd);
-		return ;
-	}
+		return sendResponse("461 :Missing parameters", fd);
 	if (!irc->channelExists(msg.params[0]))
-		sendResponse("403 :Channel doesn't exist", fd);
+		return sendResponse("403 :Channel doesn't exist", fd);
 	Channel *ch = irc->getClient(fd).getUser()->getChannel(msg.params[0]);
 	if (!ch)
-	{
-		sendResponse("442 :You're not on the channel", fd);
-		return ;
-	}
+		return sendResponse("442 :You're not on the channel", fd);
 	if (msg.params.size() < 2)
 	{
 		const std::string &nick = irc->getClient(fd).getUser()->getNick();
 		const std::string &topic = ch->getTopic();
 		if (topic.empty())
-			sendResponse("331 " + nick + " " + msg.params[0] + " :No topic is set", fd);
-		else
-			sendResponse("332 " + nick + " " + msg.params[0] + " :" + topic, fd);
-		return ;
+			return sendResponse("331 " + nick + " " + msg.params[0] + " :No topic is set", fd);
+		return sendResponse("332 " + nick + " " + msg.params[0] + " :" + topic, fd);
 	}
 	if (ch->getMode().contains('t') && !ch->getOperators().contains(fd))
-	{
-		sendResponse("482 :You're not a channel operator", fd);
-		return ;
-	}
+		return sendResponse("482 :You're not a channel operator", fd);
 	ch->setTopic(fd, msg.params[1]);
 }
 
