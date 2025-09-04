@@ -212,30 +212,42 @@ void KickCommand::execute(const Message &msg, int fd)
 void InviteCommand::execute(const Message &msg, int fd)
 {
 	if (msg.params.size() < 2)
-	{
-		sendResponse("461 :Missing parameters", fd);
-		return ;
-	}
-	bool found = false;
+		return sendResponse("461 :Missing parameters", fd);
+	Client *target = nullptr;
 	for (auto client : irc->getClients())
 	{
 		if (client.second.getUser()->getNick() == msg.params[0])
 		{
-			found = true;
+			target = &(client.second);
 			break ;
 		}
 	}
-	if (!found)
+	if (!target)
+		return sendResponse("401 :No such nick", fd);
+	if (target->_fd == fd)
+		return sendResponse("443 :You cannot invite yourself", fd);
+	Channel *ch = irc->findChannel(msg.params[1]);
+	if (ch != nullptr)
 	{
-		sendResponse("401 :No such nick", fd);
-		return ;
+		if (!ch->getUsers().contains(fd) && !ch->getOperators().contains(fd))
+			return sendResponse("442: You're not on that channel", fd);
+		if (ch->getMode().contains('i') && !ch->getOperators().contains(fd))
+			return sendResponse("482 :You're not a channel operator", fd);
+		for (auto user : ch->getUsers())
+		{
+			if (user == target->_fd)
+				return sendResponse("443 :User already on channel", fd);
+		}
+		for (auto user : ch->getOperators())
+		{
+			if (user == target->_fd)
+				return sendResponse("443 :User already on channel", fd);
+		}
+		// --> Add user to the channel's invite list
 	}
-	// if not channel op
-	//	sendResponse("482 :You're not a channel operator", fd);
-	// if user already on channel
-	//	sendResponse("443 :User already on channel", fd);
-	// if inviting yourself
-	//	sendResponse("443 :You cannot invite yourself", fd);
+	std::string invitation = ":" + irc->getClient(fd).getUser()->getNick();
+	invitation.append(" INVITE " + msg.params[0] + " :" + msg.params[1]);
+	sendResponse(invitation, target->_fd);
 	sendResponse("341 :Invitation send", fd);
 }
 
