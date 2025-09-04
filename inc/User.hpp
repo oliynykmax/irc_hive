@@ -22,4 +22,5 @@ class User {
 		string getNick(void) const;
 		string getUser(void) const;
 		Channel* getChannel(string needle);
+		void exitChannel(string needle);
 };
