@@ -67,7 +67,8 @@ void	CommandDispatcher::_welcome(int fd)
 	std::string nick = irc->getClient(fd).getUser()->getNick();
 	std::string response = "001 " + nick + " :Welcome to Hive network\r\n";
 	send(fd, response.c_str(), response.size(), 0);
-	response = "002 " + nick + " :Your hostname was discarded\r\n";
+	response = "002 " + nick + " :Your hostname is " +
+		irc->getClient(fd).getUser()->getHost() + "\r\n";
 	send(fd, response.c_str(), response.size(), 0);
 	response = "003 " + nick + " :This server was started " + irc->getTime() + "\r\n";
 	send(fd, response.c_str(), response.size(), 0);

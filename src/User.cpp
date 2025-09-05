@@ -27,12 +27,24 @@ void User::setUser(string name) {
 	_user = name;
 }
 
+void User::setHost(string host) {
+	_hostname = host;
+}
+
 string User::getNick(void) const {
 	return _nick;
 }
 
 string User::getUser(void) const {
 	return _user;
+}
+
+string User::getHost(void) const {
+	return _hostname;
+}
+
+string User::createPrefix(void) const {
+	return (":" + _nick + "!" + _user + "@" + _hostname);
 }
 
 Channel* User::getChannel(string needle) {
