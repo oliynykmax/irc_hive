@@ -3,7 +3,7 @@
 #include <string>
 #include <sys/socket.h>
 
-Channel::Channel(std::string channel) : _startTime(time(NULL), _name(channel) {
+Channel::Channel(std::string channel) : _startTime(time(NULL)), _name(channel) {
 }
 
 bool Channel::isEmpty(void) const {
