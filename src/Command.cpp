@@ -21,32 +21,17 @@ static void	sendResponse(std::string message, int fd)
 void NickCommand::execute(const Message &msg, int fd)
 {
 	if (msg.params.empty())
-	{
-		sendResponse("431 :No nickname given", fd);
-		return ;
-	}
+		return sendResponse("431 :No nickname given", fd);
 
+	const std::string &oldNick = irc->getClient(fd).getUser()->getNick();
 	std::string	newNick = msg.params[0];
-
-	if (newNick.size() < 1 || newNick.size() > 9)
-	{
-		sendResponse("432 :Erroneous nickname", fd);
-		return ;
-	}
-
 	std::regex nickname_regex("^[A-Za-z][A-Za-z0-9-_]*");
-	if (!std::regex_match(newNick, nickname_regex))
-	{
-		sendResponse("432 :Erroneous nickname", fd);
-		return ;
-	}
+	if (newNick.size() < 1 || newNick.size() > 9 || !std::regex_match(newNick, nickname_regex))
+		return sendResponse("432 " + oldNick + " " + newNick + " :Erroneous nickname", fd);
 	for (auto client : irc->getClients())
 	{
 		if (client.second.getUser()->getNick() == newNick)
-		{
-			sendResponse("433 :Nickname is already in use", fd);
-			return ;
-		}
+			return sendResponse("433 * " + newNick + " :Nickname is already in use", fd);
 	}
 	irc->getClient(fd).getUser()->setNick(newNick);
 }
@@ -54,70 +39,29 @@ void NickCommand::execute(const Message &msg, int fd)
 void UserCommand::execute(const Message &msg, int fd)
 {
 	if (msg.params.size() < 4)
-	{
-		sendResponse("461 :Missing parameters", fd);
-		return ;
-	}
+		return sendResponse("461 :Missing parameters", fd);
+	if (!irc->getClient(fd).getUser()->getUser().empty())
+		return sendResponse("462 " + irc->getClient(fd).getUser()->getNick() +
+				" : You may not reregister", fd);
 	irc->getClient(fd).getUser()->setUser(msg.params[0]);
-	std::string nick = irc->getClient(fd).getUser()->getNick();
-	sendResponse("001 " + nick + " :Welcome to Hive network", fd);
-	sendResponse("002 " + nick + " :Your host is " + msg.params[1], fd);
-	sendResponse("003 " + nick + " :This server was started " + irc->getTime(), fd);
-	sendResponse("004 " + nick + " :Your info is " + msg.params[0] + " " + msg.params[3], fd);
 }
 
 void JoinCommand::execute(const Message &msg, int fd)
 {
 	if (msg.params.size() < 1)
-	{
-		sendResponse("461 :Missing parameters", fd);
-		return ;
-	}
+		return sendResponse("461 :Missing parameters", fd);
 	std::string nick = irc->getClient(fd).getUser()->getNick();
 	std::regex channel_regex("^[#][A-Za-z0-9-_]{1,50}*");
 	if (!std::regex_match(msg.params[0], channel_regex))
-	{
-		sendResponse("403 " + nick + " " + msg.params[0] + " :No such channel", fd);
-		return ;
-	}
+		return sendResponse("403 " + nick + " " + msg.params[0] + " :No such channel", fd);
 	Channel &channel = irc->addChannel(msg.params[0]);
 	std::string response;
 	if (msg.params.size() == 1)
 		response = channel.addUser(fd);
 	else
 		response = channel.addUser(fd, msg.params[1]);
-	// if (!channel.checkUser(fd))
-	// {
-	// 	sendResponse("443 :You are already on the channel", fd);
-	// 	return ;
-	// }
-	// const auto &modes = channel.getMode();
-	// if (modes.contains('l') &&
-	// 		(channel.getUsers().size() +
-	// 		 channel.getOperators().size()) >= channel.getLimit())
-	// {
-	// 	sendResponse("471 :Cannot join channel (Channel is full)", fd);
-	// 	return ;
-	// }
-	// if (modes.contains('i'))
-	// {
-	// 	sendResponse("473 :Cannot join an invite only channel", fd);
-	// 	return ;
-	// }
-	// if (modes.contains('k'))
-	// {
-	// 	if (msg.params.size() < 2 || !channel.joinWithPassword(fd, msg.params[1]))
-	// 	{
-	// 		sendResponse("475 :Incorrect channel key", fd);
-	// 		return ;
-	// 	}
-	// }
-	// else
-	// 	channel.addUser(fd);
-	if (!response.empty()) {
-		sendResponse(response, fd);
-		return ;
-	}
+	if (!response.empty())
+		return sendResponse(response, fd);
 	const std::string &topic = channel.getTopic();
 	if (topic.empty())
 		sendResponse("331 " + nick + " " + msg.params[0] + " :No topic is set", fd);
@@ -158,23 +102,14 @@ void PartCommand::execute(const Message &msg, int fd)
 void PrivmsgCommand::execute(const Message &msg, int fd)
 {
 	if (msg.params.empty())
-	{
-		sendResponse("411 :No recipient given", fd);
-		return ;
-	}
+		return sendResponse("411 :No recipient given", fd);
 	if (msg.params.size() < 2)
-	{
-		sendResponse("412 :No text to send", fd);
-		return ;
-	}
+		return sendResponse("412 :No text to send", fd);
 	if (msg.params[0][0] == '#')
 	{
 		Channel *ch = irc->getClient(fd).getUser()->getChannel(msg.params[0]);
 		if (!ch)
-		{
-			sendResponse("442 :You're not on the channel", fd);
-			return ;
-		}
+			return sendResponse("442 :You're not on the channel", fd);
 		if (!ch->message(fd, msg.params[1], "PRIVMSG"))
 			throw (std::runtime_error("Send() failed in PRIVMSG #channel"));
 	}
@@ -303,10 +238,7 @@ void ModeCommand::execute(const Message &msg, int fd)
 		Channel *ch = irc->getClient(fd).getUser()->getChannel(msg.params[0]);
 		Channel backup = *ch;
 		if (!ch)
-		{
-			sendResponse("442 :You're not on the channel", fd);
-			return ;
-		}
+			return sendResponse("442 :You're not on the channel", fd);
 		if (msg.params.size() < 2)
 		{
 			std::string response("324 " + msg.params[0] + " ");
@@ -314,14 +246,10 @@ void ModeCommand::execute(const Message &msg, int fd)
 			for (char c : ch->getMode())
 				modes.push_back(c);
 			response.append(modes);
-			sendResponse(response, fd);
-			return ;
+			return sendResponse(response, fd);
 		}
 		if (!ch->getOperators().contains(fd))
-		{
-			sendResponse("482 :Channel operator privileges required", fd);
-			return ;
-		}
+			return sendResponse("482 :Channel operator privileges required", fd);
 		std::string input = msg.params[1];
 		std::string seen;
 		for (auto c = seen.begin(); c != seen.end(); ++c)
@@ -329,10 +257,7 @@ void ModeCommand::execute(const Message &msg, int fd)
 			if (*c != '-' && *c != '+')
 			{
 				if (seen.find(*c) != std::string::npos)
-				{
-					sendResponse("472 :Unknown mode", fd);
-					return ;
-				}
+					return sendResponse("472 :Unknown mode", fd);
 				seen += *c;
 			}
 		}
@@ -358,16 +283,10 @@ void ModeCommand::execute(const Message &msg, int fd)
 					++c;
 				}
 				if (!valid)
-				{
-					sendResponse("472 :Unknown mode", fd);
-					return ;
-				}
+					return sendResponse("472 :Unknown mode", fd);
 			}
 			else
-			{
-				sendResponse("472 :Unknown mode", fd);
-				return ;
-			}
+				return sendResponse("472 :Unknown mode", fd);
 		}
 		std::string supported = "itkol";
 		std::string requireParam = "klo";
@@ -376,10 +295,7 @@ void ModeCommand::execute(const Message &msg, int fd)
 		{
 			if ((supported.find(*c) == std::string::npos)
 				|| (std::find(c + 1, enable.end(), *c) != enable.end()))
-			{
-				sendResponse("472 :Unknown mode", fd);
-				return ;
-			}
+				return sendResponse("472 :Unknown mode", fd);
 			if (requireParam.find(*c) != std::string::npos)
 				paramsNeeded++;
 		}
@@ -387,16 +303,10 @@ void ModeCommand::execute(const Message &msg, int fd)
 		{
 			if ((supported.find(*c) == std::string::npos)
 				|| (std::find(c + 1, disable.end(), *c) != disable.end()))
-			{
-				sendResponse("472 :Unknown mode", fd);
-				return ;
-			}
+				return sendResponse("472 :Unknown mode", fd);
 		}
 		if (msg.params.size() < paramsNeeded)
-		{
-			sendResponse("461 :Need more parameters", fd);
-			return ;
-		}
+			return sendResponse("461 :Need more parameters", fd);
 		int index = 2;
 		try
 		{
@@ -469,10 +379,7 @@ void ModeCommand::execute(const Message &msg, int fd)
 	};
 
 	if (msg.params.size() < 1)
-	{
-		sendResponse("461 :Need more parameters", fd);
-		return ;
-	}
+		return sendResponse("461 :Need more parameters", fd);
 	if (msg.params[0][0] == '#')
 		channel();
 	else
@@ -490,7 +397,7 @@ void QuitCommand::execute(const Message &msg, int fd)
 void CapCommand::execute(const Message &msg, int fd)
 {
 	if (msg.params.empty())
-		sendResponse("461 CAP :Not enough parameters", fd);
+		return sendResponse("461 CAP :Not enough parameters", fd);
 	if (msg.params[0] == "LS")
 	{
 		sendResponse(":our.host.name CAP * LS :", fd);
@@ -516,10 +423,7 @@ void WhoCommand::execute(const Message &msg, int fd)
 		sendResponse("461 :Not enough parameters", fd);
 	Channel *ch = irc->getClient(fd).getUser()->getChannel(msg.params[0]);
 	if (!ch)
-	{
-		sendResponse("442 :You're not on the channel", fd);
-		return ;
-	}
+		return sendResponse("442 :You're not on the channel", fd);
 	const std::string &nick = irc->getClient(fd).getUser()->getNick();
 	for (auto id : ch->getUsers())
 	{
@@ -545,10 +449,7 @@ void WhoCommand::execute(const Message &msg, int fd)
 void PingCommand::execute(const Message &msg, int fd)
 {
 	if (msg.params.empty())
-	{
-		sendResponse("409 :No origin specified", fd);
-		return ;
-	}
+		return sendResponse("409 :No origin specified", fd);
 	std::string response = "PONG ircserv :" + msg.params[0];
 	sendResponse(response, fd);
 }
