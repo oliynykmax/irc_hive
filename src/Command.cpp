@@ -79,24 +79,21 @@ void JoinCommand::execute(const Message &msg, int fd)
 void PartCommand::execute(const Message &msg, int fd)
 {
 	if (msg.params.size() < 1)
-	{
-		sendResponse("461 :Missing parameters", fd);
-		return ;
-	}
+		return sendResponse("461 :Missing parameters", fd);
+	Client &client = irc->getClient(fd);
 	std::regex channel_regex("^[#][A-Za-z0-9-_]{1,50}*");
 	if (!std::regex_match(msg.params[0], channel_regex))
-	{
-		sendResponse("403 <nick> " + msg.params[0] + " :No such channel", fd);
-		return ;
-	}
-	// if user not on channel
-	//	sendResponse("422 :You're not on that channel", fd);
+		return sendResponse("403 " + client.getUser()->getNick() +
+				" " + msg.params[0] + " :No such channel", fd);
+	Channel *ch = client.getUser()->getChannel(msg.params[0]);
+	if (!ch)
+		return sendResponse("422 :You're not on that channel", fd);
 
-	// success
-	// update client & server
-	std::cout << "[DEBUG] User " << fd << " left channel " << msg.params[0] << std::endl;
-	// for (client : channel.clients())
-	//	sendResponse(":<nick>!<user>@<host> PART <channel> :<message>", fd);
+	std::string response = msg.params[0];
+	if (msg.params.size() > 1)
+		response.append(" :" + msg.params[1]);
+	ch->removeUser(fd, response, "PART");
+	sendResponse(":" + client.getUser()->getNick() + " PART " + response, fd);
 }
 
 void PrivmsgCommand::execute(const Message &msg, int fd)

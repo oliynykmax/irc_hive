@@ -120,27 +120,29 @@ const std::string Channel::addUser(int user, std::string passwd) {
 	return ret;
 }
 
-void Channel::removeUser(int fd, std::string msg) {
+void Channel::removeUser(int fd, std::string msg, std::string cmd) {
 	if (_users.contains(fd)) {
 		_users.erase(fd);
-		message(fd, msg, "QUIT");
+		message(fd, msg, cmd);
 	} else if (_oper.contains(fd)) {
 		_oper.erase(fd);
 		if  (_oper.empty()) {
 			if (_users.empty()) {
 					irc->removeChannel(_name);
+					return ;
 			} else {
 				auto user = _users.begin();
 				_oper.emplace(*user);
 				_users.erase(*user);
-				message(fd, msg, "QUIT");
+				message(fd, msg, cmd);
 			}
 		} else {
-			message(fd, msg, "QUIT");
+			message(fd, msg, cmd);
 		}
 	} else {
 		return ;
 	}
+	irc->getClient(fd).getUser()->exitChannel(_name);
 }
 
 bool Channel::joinWithPassword(int fd, std::string passwd) {
