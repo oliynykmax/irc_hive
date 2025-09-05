@@ -33,7 +33,8 @@ void NickCommand::execute(const Message &msg, int fd)
 		if (client.second.getUser()->getNick() == newNick)
 			return sendResponse("433 * " + newNick + " :Nickname is already in use", fd);
 	}
-	irc->getClient(fd).getUser()->setNick(newNick);
+	irc->getClient(fd).getUser()->setNick(fd, newNick);
+	sendResponse(":" + oldNick + " NICK :" + newNick, fd);
 }
 
 void UserCommand::execute(const Message &msg, int fd)
