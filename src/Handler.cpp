@@ -16,7 +16,7 @@ void Handler::clientWrite(int fd) {
 	parser.feed(&buf[0], messageLen);
 	while (!msg_queue.empty())
 	{
-		const unique_ptr<Message> &msg = msg_queue.front();
+		unique_ptr<Message> &msg = msg_queue.front();
 		if (!dispatcher.dispatch(msg, fd))
 			return ;
 		msg_queue.pop();
