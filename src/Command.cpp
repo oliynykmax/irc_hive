@@ -44,7 +44,7 @@ void UserCommand::execute(const Message &msg, int fd)
 		return sendResponse("462 " + irc->getClient(fd).getUser()->getNick() +
 				" : You may not reregister", fd);
 	irc->getClient(fd).getUser()->setUser(msg.params[0]);
-	const std::string &nick = irc->getClient(fd).getUser()->getNick();
+	std::string nick = irc->getClient(fd).getUser()->getNick();
 	sendResponse("001 " + nick + " :Welcome to Hive network", fd);
 	sendResponse("002 " + nick + " :Your host is " + msg.params[1], fd);
 	sendResponse("003 " + nick + " :This server was started " + irc->getTime(), fd);

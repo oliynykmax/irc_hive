@@ -23,18 +23,13 @@ CommandDispatcher::CommandDispatcher(void)
 }
 
 /**
- * Search for an installed command handler for the given message and execute.
+ * Search for an installed command handler for the given message and execute
  * @param msg	The full command to execute
- * @param fd	The client socket
  */
-bool	CommandDispatcher::dispatch(std::unique_ptr<Message> &msg, int fd)
+bool	CommandDispatcher::dispatch(const std::unique_ptr<Message> &msg, int fd)
 {
 	try
 	{
-		if (!irc->getClient(fd).getUser()->getNick().empty())
-			_nickResolved = true;
-		if (_nickResolved)
-			_processQueue(fd);
 		if (auto cmd = _handlers.find(msg->command); cmd != _handlers.end())
 		{
 			if (!irc->checkPassword() &&
@@ -47,15 +42,9 @@ bool	CommandDispatcher::dispatch(std::unique_ptr<Message> &msg, int fd)
 				response.append(" :Password incorrect\r\n");
 				send(fd, response.c_str(), response.size(), 0);
 				irc->removeClient(fd);
-				return (false);
+				return false;
 			}
-			if (msg->command == "PASS" || msg->command == "CAP" || msg->command == "NICK")
-				cmd->second->execute(*msg, fd);
-			else if (_nickResolved)
-				cmd->second->execute(*msg, fd);
-			else
-				_onHold.push(std::move(msg));
-
+			cmd->second->execute(*msg, fd);
 		}
 		else
 			_default.execute(*msg, fd);
@@ -65,17 +54,4 @@ bool	CommandDispatcher::dispatch(std::unique_ptr<Message> &msg, int fd)
 		std::cerr << "Command dispatcher error: " << e.what() << std::endl;
 	}
 	return (true);
-}
-
-void CommandDispatcher::_processQueue(int fd)
-{
-	while (!_onHold.empty())
-	{
-		auto cmd = _handlers.find(_onHold.front()->command);
-		if (cmd != _handlers.end())
-			cmd->second->execute(*_onHold.front(), fd);
-		else
-			_default.execute(*_onHold.front(), fd);
-		_onHold.pop();
-	}
 }
