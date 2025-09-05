@@ -2,14 +2,16 @@
 #include "User.hpp"
 #include "Server.hpp"
 //#include "Operator.hpp"
-#include <cstddef>
 #include <set>
+#include <ctime>
+#include <cstddef>
 #include <sys/types.h>
 #include <sys/socket.h>
 
 class Server;
 
 using std::set;
+using std::string;
 
 extern Server *irc;
 
@@ -27,36 +29,37 @@ class User;
  */
 class Channel {
 	private:
-		std::string _name;
-		std::string _passwd = "";
-		std::string _topic;
+		time_t _startTime;
+		string _name;
+		string _passwd = "";
+		string _topic;
 		size_t _limit;
 		set<int> _users;
 		set<int> _oper;
 		set<int> _invite;
 		set<char> _mode;
-		bool joinWithPassword(int fd, std::string passwd);
-		bool joinWithInvite(int fd, std::string passwd);
+		bool joinWithPassword(int fd, string passwd);
+		bool joinWithInvite(int fd, string passwd);
 		bool checkUser(int fd);
 	public:
-		explicit Channel(std::string channel);
+		explicit Channel(string channel);
 		bool isEmpty(void) const;
-		void setPassword(std::string passwd);
-		const std::string& getName(void) const;
+		void setPassword(string passwd);
+		const string& getName(void) const;
 		const set<char>& getMode(void) const;
 		const set<int>& getUsers(void) const;
 		const set<int>& getOperators(void) const;
-		const std::string& getTopic(void) const;
+		const string& getTopic(void) const;
 		const size_t& getLimit(void) const;
 		void setLimit(size_t limit);
-		void setMode(std::string mode);
-		void unsetMode(std::string umode);
-		bool setTopic(int fd, std::string topic);
-		const std::string addUser(int fd, std::string passwd = "");
-		void removeUser(int fd, std::string msg = "", std::string cmd = "");
-		std::string userList(void) const;
-		void makeOperator(int fd, std::string user);
+		void setMode(string mode);
+		void unsetMode(string umode);
+		bool setTopic(int fd, string topic);
+		const string addUser(int fd, string passwd = "");
+		void removeUser(int fd, string msg = "", string cmd = "");
+		string userList(void) const;
+		void makeOperator(int fd, string user);
 		bool kick(int op, int user);
 		void invite(int fd);
-		bool message(int fd, std::string name = "", std::string msg = "", std::string type = "");
+		bool message(int fd, string name = "", string msg = "", string type = "");
 };
