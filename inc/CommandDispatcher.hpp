@@ -5,6 +5,7 @@
 #include <iostream>
 #include "Command.hpp"
 #include "Message.hpp"
+#include <queue>
 
 /**
  * @class	CommandDispatcher
@@ -18,9 +19,13 @@ class	CommandDispatcher
 	public:
 		CommandDispatcher(void);
 
-		bool	dispatch(const std::unique_ptr<Message> &msg, int fd);
+		bool	dispatch(std::unique_ptr<Message> &msg, int fd);
 
 	private:
 		std::unordered_map<std::string, std::unique_ptr<ICommand>> _handlers;
 		UnknownCommand _default;
+		std::queue<std::unique_ptr<Message>> _onHold;
+		
+		void	_processQueue(int fd);
+		bool	_nickResolved = false;
 };
