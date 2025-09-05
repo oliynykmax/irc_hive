@@ -33,8 +33,9 @@ void NickCommand::execute(const Message &msg, int fd)
 		if (client.second.getUser()->getNick() == newNick)
 			return sendResponse("433 * " + newNick + " :Nickname is already in use", fd);
 	}
+	std::string prefix = irc->getClient(fd).getUser()->createPrefix();
 	irc->getClient(fd).getUser()->setNick(fd, newNick);
-	sendResponse(":" + oldNick + " NICK :" + newNick, fd);
+	sendResponse(prefix + " NICK :" + newNick, fd);
 }
 
 void UserCommand::execute(const Message &msg, int fd)
@@ -315,7 +316,7 @@ void ModeCommand::execute(const Message &msg, int fd)
 			{
 				if (c == 'k')
 					ch->setPassword(msg.params[index++]);
-				if (c == 'l')
+				else if (c == 'l')
 				{
 					try
 					{
@@ -327,27 +328,19 @@ void ModeCommand::execute(const Message &msg, int fd)
 						throw ;
 					}
 				}
-				if (c == 'o')
+				else if (c == 'o')
 				{
-					auto user = ch->getUsers().begin();
-					while (user != ch->getUsers().end())
+					try
 					{
-						if (irc->getClient(*user).getUser()->getNick() ==
-								msg.params[index])
-						{
-							ch->makeOperator(*user);
-							index++;
-							break ;
-						}
-						++user;
+						ch->makeOperator(fd, msg.params[index++]);
 					}
-					if (user == ch->getUsers().end())
+					catch (std::exception &e)
 					{
 						sendResponse("441 " +
 								irc->getClient(fd).getUser()->getNick() +
 								" " + msg.params[0] +
 								" :They aren't on that channel", fd);
-						throw (std::runtime_error(""));
+						throw ;
 					}
 
 				}

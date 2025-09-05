@@ -17,7 +17,7 @@ class User {
 		string _hostname = "";
 	public:
 		void join(Channel *chan);
-		void quit(int fd, std::string msg);
+		void quit(int fd, string msg);
 		void setNick(int fd, string name);
 		void setUser(string name);
 		void setHost(string host);
