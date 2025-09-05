@@ -53,7 +53,7 @@ class Channel {
 		void unsetMode(std::string umode);
 		bool setTopic(int fd, std::string topic);
 		const std::string addUser(int fd, std::string passwd = "");
-		void removeUser(int fd, std::string msg = "");
+		void removeUser(int fd, std::string msg = "", std::string cmd = "");
 		std::string userList(void) const;
 		bool makeOperator(int newOp);
 		bool kick(int op, int user);

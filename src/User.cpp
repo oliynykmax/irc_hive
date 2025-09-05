@@ -11,7 +11,7 @@ void User::join(Channel *chan) {
 
 void User::quit(int fd, std::string msg) {
 	for (auto channels : _channels) {
-		channels->removeUser(fd, msg);
+		channels->removeUser(fd, msg, "QUIT");
 	}
 	irc->removeClient(fd);
 }
