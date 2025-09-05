@@ -105,3 +105,7 @@ void Client::authenticate(void) {
 bool Client::isAuthenticated(void) const {
 	return _authenticated;
 }
+
+bool& Client::accessRegistered(void){
+	return _registered;
+}

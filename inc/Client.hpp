@@ -30,6 +30,8 @@ class Client {
 		std::function<void(int)> _HUP	= 	nullptr;
 		User* _self;
 		bool _authenticated = false;
+		bool _registered = false;
+
 	public:
 		explicit Client(int fd);
 		~Client();
@@ -43,4 +45,5 @@ class Client {
 		User* getUser(void);
 		void authenticate(void);
 		bool isAuthenticated(void) const;
+		bool& accessRegistered(void);
 };

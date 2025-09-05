@@ -45,6 +45,11 @@ bool	CommandDispatcher::dispatch(const std::unique_ptr<Message> &msg, int fd)
 				return false;
 			}
 			cmd->second->execute(*msg, fd);
+			if (msg->command != "QUIT" &&
+				!irc->getClient(fd).getUser()->getNick().empty() &&
+				!irc->getClient(fd).getUser()->getUser().empty() &&
+				!irc->getClient(fd).accessRegistered())
+				_welcome(fd);
 		}
 		else
 			_default.execute(*msg, fd);
@@ -54,4 +59,19 @@ bool	CommandDispatcher::dispatch(const std::unique_ptr<Message> &msg, int fd)
 		std::cerr << "Command dispatcher error: " << e.what() << std::endl;
 	}
 	return (true);
+}
+
+void	CommandDispatcher::_welcome(int fd)
+{
+	irc->getClient(fd).accessRegistered() = true;
+	std::string nick = irc->getClient(fd).getUser()->getNick();
+	std::string response = "001 " + nick + " :Welcome to Hive network\r\n";
+	send(fd, response.c_str(), response.size(), 0);
+	response = "002 " + nick + " :Your hostname was discarded\r\n";
+	send(fd, response.c_str(), response.size(), 0);
+	response = "003 " + nick + " :This server was started " + irc->getTime() + "\r\n";
+	send(fd, response.c_str(), response.size(), 0);
+	response = "004 " + nick + " :Your username is " +
+		irc->getClient(fd).getUser()->getUser() + "\r\n";
+	send(fd, response.c_str(), response.size(), 0);
 }
