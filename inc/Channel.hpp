@@ -55,7 +55,7 @@ class Channel {
 		const std::string addUser(int fd, std::string passwd = "");
 		void removeUser(int fd, std::string msg = "", std::string cmd = "");
 		std::string userList(void) const;
-		bool makeOperator(int newOp);
+		void makeOperator(int fd, std::string user);
 		bool kick(int op, int user);
 		void invite(int fd);
 		bool message(int fd, std::string name = "", std::string msg = "", std::string type = "");
