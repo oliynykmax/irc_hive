@@ -219,9 +219,12 @@ bool Channel::kick(int op, int user) {
 	}
 }
 
-bool Channel::message(int user, std::string msg, std::string type) {
-	std::string message = ":" + irc->getClient(user).getUser()->getNick() + " " + type + " " + _name + " :" + msg + "\r\n";
-
+bool Channel::message(int user, std::string msg, std::string type,  std::string name) {
+	std::string message;
+	if (name.empty())
+		message = ":" + irc->getClient(user).getUser()->getNick() + " " + type + " " + _name + " :" + msg + "\r\n";
+	else
+		message = ":" + msg + " " + type + " :" + name + "\r\n";
 	for (auto users : _users) {
 		if (users == user)
 			continue;
