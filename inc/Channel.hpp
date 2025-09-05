@@ -58,5 +58,5 @@ class Channel {
 		bool makeOperator(int newOp);
 		bool kick(int op, int user);
 		void invite(int fd);
-		bool message(int fd, std::string msg, std::string type);
+		bool message(int fd, std::string name = "", std::string msg = "", std::string type = "");
 };
