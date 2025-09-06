@@ -1,4 +1,5 @@
 #include "Channel.hpp"
+#include <stdexcept>
 #include <string>
 #include <sys/socket.h>
 
@@ -39,6 +40,7 @@ const size_t& Channel::getLimit(void) const {
 
 void Channel::setLimit(size_t limit) {
 	_limit = limit;
+
 }
 
 void Channel::setMode(std::string mode) {
@@ -197,12 +199,21 @@ std::string Channel::userList(void) const {
 	return ret;
 }
 
-bool Channel::makeOperator(int newOp) {
-	if (_oper.contains(newOp))
-		return false;
+void Channel::makeOperator(int fd, std::string uname) {
+	int newOp = 0;
+
+	for (auto user : _users) {
+		if (irc->getClient(user).getUser()->getNick() == uname) {
+			newOp = user;
+			break ;
+		}
+	}
+	if (!newOp)
+		throw std::runtime_error("");
 	_users.erase(newOp);
 	_oper.emplace(newOp);
-	return true;
+	std::string response = irc->getClient(fd).getUser()->createPrefix() + " MODE " + _name + " +o " + uname + "\r\n";
+	send(newOp, response.data(), response.size(), 0);
 }
 
 void Channel::invite(int fd) {
@@ -221,10 +232,13 @@ bool Channel::kick(int op, int user) {
 
 bool Channel::message(int user, std::string msg, std::string type,  std::string name) {
 	std::string message;
-	if (name.empty())
+	if (type.empty())
+		message = msg;
+	else if (name.empty())
 		message = ":" + irc->getClient(user).getUser()->getNick() + " " + type + " " + _name + " :" + msg + "\r\n";
 	else
-		message = ":" + msg + " " + type + " :" + name + "\r\n";
+		message = msg + " " + type + " :" + name + "\r\n";
+
 	for (auto users : _users) {
 		if (users == user)
 			continue;

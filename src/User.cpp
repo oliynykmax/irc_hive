@@ -1,15 +1,10 @@
 #include "User.hpp"
 
-// User::User(string user, string nick)
-// :
-// _nick(nick),
-// _user(user){}
-
 void User::join(Channel *chan) {
 	_channels.push_back(chan);
 }
 
-void User::quit(int fd, std::string msg) {
+void User::quit(int fd, string msg) {
 	for (auto channels : _channels) {
 		channels->removeUser(fd, msg, "QUIT");
 	}
@@ -18,7 +13,7 @@ void User::quit(int fd, std::string msg) {
 
 void User::setNick(int fd, string name) {
 	for (auto channels : _channels) {
-		channels->message(fd, _nick, "NICK", name);
+		channels->message(fd, createPrefix(), "NICK", name);
 	}
 	_nick = name;
 }
@@ -27,12 +22,24 @@ void User::setUser(string name) {
 	_user = name;
 }
 
+void User::setHost(string host) {
+	_hostname = host;
+}
+
 string User::getNick(void) const {
 	return _nick;
 }
 
 string User::getUser(void) const {
 	return _user;
+}
+
+string User::getHost(void) const {
+	return _hostname;
+}
+
+string User::createPrefix(void) const {
+	return (":" + _nick + "!" + _user + "@" + _hostname);
 }
 
 Channel* User::getChannel(string needle) {

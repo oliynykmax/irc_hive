@@ -33,8 +33,9 @@ void NickCommand::execute(const Message &msg, int fd)
 		if (client.second.getUser()->getNick() == newNick)
 			return sendResponse("433 * " + newNick + " :Nickname is already in use", fd);
 	}
+	std::string prefix = irc->getClient(fd).getUser()->createPrefix();
 	irc->getClient(fd).getUser()->setNick(fd, newNick);
-	sendResponse(":" + oldNick + " NICK :" + newNick, fd);
+	sendResponse(prefix + " NICK :" + newNick, fd);
 }
 
 void UserCommand::execute(const Message &msg, int fd)
@@ -45,6 +46,7 @@ void UserCommand::execute(const Message &msg, int fd)
 		return sendResponse("462 " + irc->getClient(fd).getUser()->getNick() +
 				" : You may not reregister", fd);
 	irc->getClient(fd).getUser()->setUser(msg.params[0]);
+	irc->getClient(fd).getUser()->setHost(msg.params[1]);
 }
 
 void JoinCommand::execute(const Message &msg, int fd)
@@ -71,10 +73,11 @@ void JoinCommand::execute(const Message &msg, int fd)
 	const std::string &names = channel.userList();
 	sendResponse("353 " + nick + " @ " + msg.params[0] + " :" + names, fd);
 	sendResponse("366 " + nick + " " + msg.params[0] + " :End of NAMES list", fd);
+	std::string prefix = irc->getClient(fd).getUser()->createPrefix();
 	for (auto user : channel.getUsers())
-		sendResponse(":" + nick + " JOIN :" + msg.params[0], user);
+		sendResponse(prefix + " JOIN :" + msg.params[0], user);
 	for (auto oper : channel.getOperators())
-		sendResponse(":" + nick + " JOIN :" + msg.params[0], oper);
+		sendResponse(prefix + " JOIN :" + msg.params[0], oper);
 }
 
 void PartCommand::execute(const Message &msg, int fd)
@@ -94,7 +97,7 @@ void PartCommand::execute(const Message &msg, int fd)
 	if (msg.params.size() > 1)
 		response.append(" :" + msg.params[1]);
 	ch->removeUser(fd, response, "PART");
-	sendResponse(":" + client.getUser()->getNick() + " PART " + response, fd);
+	sendResponse(client.getUser()->createPrefix() + " PART " + response, fd);
 }
 
 void PrivmsgCommand::execute(const Message &msg, int fd)
@@ -117,7 +120,7 @@ void PrivmsgCommand::execute(const Message &msg, int fd)
 		{
 			if (client.second.getUser()->getNick() == msg.params[0])
 			{
-				std::string message = ":" + client.second.getUser()->getNick() +
+				std::string message = client.second.getUser()->createPrefix() +
 					" PRIVMSG " + msg.params[1] + "\r\n";
 				send(client.first, message.c_str(), message.size(), 0);
 				return ;
@@ -158,7 +161,8 @@ void KickCommand::execute(const Message &msg, int fd)
 		return sendResponse("441 :They aren't on that channel", fd);
 
 	std::string nick = ":" + irc->getClient(fd).getUser()->getNick();
-	std::string response = nick + " KICK " + msg.params[0] + " " + msg.params[1];
+	std::string response = irc->getClient(fd).getUser()->createPrefix() +
+		" KICK " + msg.params[0] + " " + msg.params[1];
 	if (msg.params.size() < 3)
 		response.append(" " + nick);
 	else
@@ -201,7 +205,7 @@ void InviteCommand::execute(const Message &msg, int fd)
 		else
 			ch->invite(target->_fd);
 	}
-	std::string invitation = ":" + irc->getClient(fd).getUser()->getNick();
+	std::string invitation = irc->getClient(fd).getUser()->createPrefix();
 	invitation.append(" INVITE " + msg.params[0] + " :" + msg.params[1]);
 	sendResponse(invitation, target->_fd);
 	sendResponse("341 :Invitation send", fd);
@@ -312,7 +316,7 @@ void ModeCommand::execute(const Message &msg, int fd)
 			{
 				if (c == 'k')
 					ch->setPassword(msg.params[index++]);
-				if (c == 'l')
+				else if (c == 'l')
 				{
 					try
 					{
@@ -324,27 +328,19 @@ void ModeCommand::execute(const Message &msg, int fd)
 						throw ;
 					}
 				}
-				if (c == 'o')
+				else if (c == 'o')
 				{
-					auto user = ch->getUsers().begin();
-					while (user != ch->getUsers().end())
+					try
 					{
-						if (irc->getClient(*user).getUser()->getNick() ==
-								msg.params[index])
-						{
-							ch->makeOperator(*user);
-							index++;
-							break ;
-						}
-						++user;
+						ch->makeOperator(fd, msg.params[index++]);
 					}
-					if (user == ch->getUsers().end())
+					catch (std::exception &e)
 					{
 						sendResponse("441 " +
 								irc->getClient(fd).getUser()->getNick() +
 								" " + msg.params[0] +
 								" :They aren't on that channel", fd);
-						throw (std::runtime_error(""));
+						throw ;
 					}
 
 				}
@@ -361,19 +357,9 @@ void ModeCommand::execute(const Message &msg, int fd)
 
 	auto user = [&]()
 	{
-		// if msg.params[0] != calling user
-		// sendResponse("502 :Users don't match", fd);
-		if (msg.params.size() < 2)
-		{
-			std::cout << "[DEBUG] Sending back user modes for: " << msg.params[0] << std::endl;
-			return ;
-		}
-		if (msg.params[1] == "+i")
-		{
-			std::cout << "[DEBUG] Set user " << msg.params[0] << " invisible" << std::endl;
-			return ;
-		}
-		sendResponse("472 :Unknown mode", fd);
+		if (msg.params[0] != irc->getClient(fd).getUser()->getNick())
+			sendResponse("502 :Users don't match", fd);
+		return ;
 	};
 
 	if (msg.params.size() < 1)
@@ -397,15 +383,11 @@ void CapCommand::execute(const Message &msg, int fd)
 	if (msg.params.empty())
 		return sendResponse("461 CAP :Not enough parameters", fd);
 	if (msg.params[0] == "LS")
-	{
-		sendResponse(":our.host.name CAP * LS :", fd);
-	}
+		return sendResponse(":our.host.name CAP * LS :", fd);
 	else if (msg.params[0] == "END")
-	{
-		std::cout << "[DEBUG] Received CAP END, continue..." << std::endl; // continue
-	}
+		return ;
 	else
-		sendResponse("410 CAP :Unsupported subcommand", fd);
+		return sendResponse("410 CAP :Unsupported subcommand", fd);
 }
 
 void WhoisCommand::execute(const Message &msg, int fd)
@@ -427,7 +409,8 @@ void WhoCommand::execute(const Message &msg, int fd)
 	{
 		const User *user = irc->getClient(id).getUser();
 		std::string who("352 " + nick + " " + msg.params[0]);
-		who.append(" " + user->getUser() + " hostname ircserv " + user->getNick() + " H");
+		who.append(" " + user->getUser() + " " + user->getHost() +
+				" ircserv " + user->getNick() + " H");
 		who.append("\r\n");
 		send(fd, who.c_str(), who.size(), 0);
 	}
@@ -435,7 +418,8 @@ void WhoCommand::execute(const Message &msg, int fd)
 	{
 		const User *user = irc->getClient(id).getUser();
 		std::string who("352 " + nick + " " + msg.params[0]);
-		who.append(" " + user->getUser() + " hostname ircserv " + user->getNick() + " H");
+		who.append(" " + user->getUser() + " " + user->getHost() +
+				" ircserv " + user->getNick() + " H");
 		who.append("@\r\n");
 		send(fd, who.c_str(), who.size(), 0);
 	}
