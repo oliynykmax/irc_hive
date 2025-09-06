@@ -33,9 +33,9 @@ void NickCommand::execute(const Message &msg, int fd)
 		if (client.second.getUser()->getNick() == newNick)
 			return sendResponse("433 * " + newNick + " :Nickname is already in use", fd);
 	}
-	std::string prefix = irc->getClient(fd).getUser()->createPrefix();
 	irc->getClient(fd).getUser()->setNick(fd, newNick);
-	sendResponse(prefix + " NICK :" + newNick, fd);
+	sendResponse(irc->getClient(fd).getUser()->createPrefix()
+		+ " NICK :" + newNick, fd);
 }
 
 void UserCommand::execute(const Message &msg, int fd)
@@ -122,8 +122,8 @@ void PrivmsgCommand::execute(const Message &msg, int fd)
 		{
 			if (client.second.getUser()->getNick() == msg.params[0])
 			{
-				sendResponse(client.second.getUser()->createPrefix() +
-					" PRIVMSG " + msg.params[1], client.first);
+				sendResponse(":" + irc->getClient(fd).getUser()->getNick() +
+					" PRIVMSG " + msg.params[0] + " :" + msg.params[1], client.first);
 				return ;
 			}
 		}
