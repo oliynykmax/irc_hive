@@ -96,8 +96,10 @@ Message	RecvParser::_parseMessage(const std::string &msg)
 			std::string trailing_param = token.substr(1);
 			std::string rest;
 			std::getline(line_stream, rest);
-			if (!rest.empty())
+			if (!rest.empty() && ret.command != "PRIVMSG")
 				trailing_param += " " + rest;
+			else if (!rest.empty())
+				trailing_param += rest;
 			ret.params.push_back(trailing_param);
 			break ;
 		}

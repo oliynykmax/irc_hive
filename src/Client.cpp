@@ -5,7 +5,7 @@ Client::Client(int fd) :
 _self(new User()),
 _fd(fd) {
 	if (fcntl(fd, F_SETFL, O_NONBLOCK))
-		throw std::runtime_error("Client::Client: Fcntl failed");
+		throw std::runtime_error("Client::Client: fcntl set socket non-blocking failed");
 }
 
 Client::Client(const Client& other) :

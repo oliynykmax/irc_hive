@@ -3,18 +3,18 @@
 #include <string>
 #include <sys/socket.h>
 
-Channel::Channel(std::string channel) : _name(channel) {
+Channel::Channel(string channel) : _name(channel) {
 }
 
 bool Channel::isEmpty(void) const {
 	return _users.empty() && _oper.empty();
 }
 
-void Channel::setPassword(std::string passwd) {
+void Channel::setPassword(string passwd) {
 	_passwd = passwd;
 }
 
-const std::string& Channel::getName(void) const {
+const string& Channel::getName(void) const {
 	return _name;
 }
 
@@ -30,7 +30,7 @@ const set<int>& Channel::getOperators(void) const {
 	return _oper;
 }
 
-const std::string& Channel::getTopic(void) const {
+const string& Channel::getTopic(void) const {
 	return _topic;
 }
 
@@ -43,7 +43,7 @@ void Channel::setLimit(size_t limit) {
 
 }
 
-void Channel::setMode(std::string mode) {
+void Channel::setMode(string mode) {
 	for (char c : mode) {
 		if (c == 'o')
 			continue;
@@ -51,7 +51,7 @@ void Channel::setMode(std::string mode) {
 	}
 }
 
-void Channel::unsetMode(std::string umode)  {
+void Channel::unsetMode(string umode)  {
 	for (char c : umode) {
 		if (c == 'i')
 			_invite.clear();
@@ -59,10 +59,10 @@ void Channel::unsetMode(std::string umode)  {
 	}
 }
 
-bool Channel::setTopic(int user, std::string topic) {
+bool Channel::setTopic(int user, string topic) {
 	if(_oper.contains(user)) {
 		_topic = topic;
-		std::string message = ":" + irc->getClient(user).getUser()->getNick() + " TOPIC " + _name + " :" + topic + "\r\n";
+		string message = ":" + irc->getClient(user).getUser()->getNick() + " TOPIC " + _name + " :" + topic + "\r\n";
 		auto bytes = send(user, message.data(), message.size(), 0);
 		if (bytes == -1)
 			return false;
@@ -92,9 +92,9 @@ bool Channel::checkUser(int user) {
 	return true;
 }
 
-const std::string Channel::addUser(int user, std::string passwd) {
-	std::string ret;
-	const std::string nick = irc->getClient(user).getUser()->getNick();
+const string Channel::addUser(int user, string passwd) {
+	string ret;
+	const string nick = irc->getClient(user).getUser()->getNick();
 	if (!checkUser(user))
 		ret = "443 " + nick + " "
 		 + _name + " :You are already on the channel";
@@ -122,7 +122,7 @@ const std::string Channel::addUser(int user, std::string passwd) {
 	return ret;
 }
 
-void Channel::removeUser(int fd, std::string msg, std::string cmd) {
+void Channel::removeUser(int fd, string msg, string cmd) {
 	if (_users.contains(fd)) {
 		_users.erase(fd);
 		message(fd, msg, cmd);
@@ -147,7 +147,7 @@ void Channel::removeUser(int fd, std::string msg, std::string cmd) {
 	irc->getClient(fd).getUser()->exitChannel(_name);
 }
 
-bool Channel::joinWithPassword(int fd, std::string passwd) {
+bool Channel::joinWithPassword(int fd, string passwd) {
 	if (passwd == _passwd) {
 		if (isEmpty())
 			_oper.emplace(fd);
@@ -160,7 +160,7 @@ bool Channel::joinWithPassword(int fd, std::string passwd) {
 	}
 }
 
-bool Channel::joinWithInvite(int fd, std::string passwd) {
+bool Channel::joinWithInvite(int fd, string passwd) {
 	if (_invite.contains(fd)) {
 		if (!_mode.contains('k')) {
 			if (isEmpty()) {
@@ -183,8 +183,8 @@ bool Channel::joinWithInvite(int fd, std::string passwd) {
 	}
 }
 
-std::string Channel::userList(void) const {
-	std::string ret;
+string Channel::userList(void) const {
+	string ret;
 
 	for (auto users : _users) {
 		ret += irc->getClient(users).getUser()->getNick();
@@ -199,7 +199,18 @@ std::string Channel::userList(void) const {
 	return ret;
 }
 
-void Channel::makeOperator(int fd, std::string uname) {
+string Channel::modeList(void) const {
+	string ret("+");
+
+	for (auto mode : _mode)
+		ret += mode;
+	if (ret.size() == 1)
+		ret.clear();
+
+	return ret;
+}
+
+void Channel::makeOperator(int fd, string uname) {
 	int newOp = 0;
 
 	for (auto user : _users) {
@@ -212,7 +223,7 @@ void Channel::makeOperator(int fd, std::string uname) {
 		throw std::runtime_error("");
 	_users.erase(newOp);
 	_oper.emplace(newOp);
-	std::string response = irc->getClient(fd).getUser()->createPrefix() + " MODE " + _name + " +o " + uname + "\r\n";
+	string response = irc->getClient(fd).getUser()->createPrefix() + " MODE " + _name + " +o " + uname + "\r\n";
 	send(newOp, response.data(), response.size(), 0);
 }
 
@@ -230,8 +241,8 @@ bool Channel::kick(int op, int user) {
 	}
 }
 
-bool Channel::message(int user, std::string msg, std::string type,  std::string name) {
-	std::string message;
+bool Channel::message(int user, string msg, string type,  string name) {
+	string message;
 	if (type.empty())
 		message = msg;
 	else if (name.empty())
@@ -242,16 +253,13 @@ bool Channel::message(int user, std::string msg, std::string type,  std::string 
 	for (auto users : _users) {
 		if (users == user)
 			continue;
-		auto bytes = send(users, message.data(), message.size(), 0);
-		if (bytes == -1)
+		else if (-1 == send(users, message.data(), message.size(), 0))
 			return false;
 	}
-
 	for (auto users : _oper) {
 		if (users == user)
 			continue;
-		auto bytes = send(users, message.data(), message.size(), 0);
-		if (-1 == bytes)
+		if (-1 == send(users, message.data(), message.size(), 0))
 			return false;
 	}
 	return true;
