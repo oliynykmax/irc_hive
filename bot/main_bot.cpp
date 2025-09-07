@@ -15,7 +15,7 @@
 /* Embedded minimal AI HTTP code (curl shell-out) */
 static const std::string AI_HOST = "api.deepseek.com";
 static const std::string AI_PATH = "/v1/chat/completions";
-static const std::string AI_KEY  = "sk-f8805d737ab14ddcbd83ebe3ec36f1f9";
+static const std::string AI_KEY  = "...";
 
 static std::string jsonEscape(const std::string& in) {
     std::string out;
