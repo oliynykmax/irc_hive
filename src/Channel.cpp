@@ -38,6 +38,10 @@ const size_t& Channel::getLimit(void) const {
 	return _limit;
 }
 
+const string Channel::getTime(void) const {
+	return std::to_string(_startTime);
+}
+
 void Channel::setLimit(size_t limit) {
 	_limit = limit;
 
