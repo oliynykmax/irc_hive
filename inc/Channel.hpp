@@ -46,6 +46,7 @@ class Channel {
 		const set<int>& getOperators(void) const;
 		const string& getTopic(void) const;
 		const size_t& getLimit(void) const;
+		const string getTime(void) const;
 		void setLimit(size_t limit);
 		void setMode(string mode);
 		void unsetMode(string umode);

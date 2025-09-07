@@ -241,22 +241,22 @@ void ModeCommand::execute(const Message &msg, int fd)
 		if (!ch)
 			return sendResponse("442 :You're not on the channel", fd);
 		Channel backup = *ch;
-		if (msg.params.size() < 2)
-			return sendResponse(":localhost 324 " + irc->getClient(fd).getUser()->getNick() + " " + msg.params[0] + " " + ch->modeList(), fd);
-		else if (!ch->getOperators().contains(fd))
+		if (msg.params.size() < 2) {
+			sendResponse(":localhost 324 " + irc->getClient(fd).getUser()->getNick() + " " + msg.params[0] + " " + ch->modeList(), fd);
+			return sendResponse(":localhost 329 " + irc->getClient(fd).getUser()->getNick() + " " + msg.params[0] + " " + ch->getTime());
+		} else if (!ch->getOperators().contains(fd))
 			return sendResponse("482 :Channel operator privileges required", fd);
 		std::string input = msg.params[1], seen;
-		for (auto c = seen.begin(); c != seen.end(); ++c) {
+		for (auto c = seen.begin(); c != seen.end(); ++c)
 			if (*c != '-' && *c != '+') {
 				if (seen.find(*c) != std::string::npos)
 					return sendResponse("472 :Unknown mode", fd);
 				seen += *c;
 			}
-		}
 		std::string enable, disable;
 		bool plus, valid;
 		auto c = input.begin();
-		while (c != input.end()) {
+		while (c != input.end())
 			if (*c == '+'|| *c == '-') {
 				plus = (*c == '+');
 				++c;
@@ -270,23 +270,18 @@ void ModeCommand::execute(const Message &msg, int fd)
 					return sendResponse("472 :Unknown mode", fd);
 			} else
 				return sendResponse("472 :Unknown mode", fd);
-		}
 		std::string supported = "itkol", requireParam = "klo";
 		size_t paramsNeeded = 2;
 		for (auto c = enable.begin(); c != enable.end(); ++c)
-		{
 			if ((supported.find(*c) == std::string::npos)
 				|| (std::find(c + 1, enable.end(), *c) != enable.end()))
 				return sendResponse("472 :Unknown mode", fd);
-			if (requireParam.find(*c) != std::string::npos)
+			else if (requireParam.find(*c) != std::string::npos)
 				paramsNeeded++;
-		}
 		for (auto c = disable.begin(); c != disable.end(); ++c)
-		{
 			if ((supported.find(*c) == std::string::npos)
 				|| (std::find(c + 1, disable.end(), *c) != disable.end()))
 				return sendResponse("472 :Unknown mode", fd);
-		}
 		if (msg.params.size() < paramsNeeded)
 			return sendResponse("461 :Need more parameters", fd);
 		int index = 2;
