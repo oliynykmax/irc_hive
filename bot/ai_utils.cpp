@@ -37,7 +37,51 @@ int send_http_request(const std::string& host, const std::string& path, const st
         std::cerr << "curl exited with code " << rc << "\nRaw/partial response:\n" << response << std::endl;
         return -1;
     }
-    std::cout << "Response:\n" << response << std::endl;
+
+    // Naive JSON extraction of the first assistant message "content"
+    std::string extracted;
+    // Prefer content that follows an assistant role, fallback to first content field
+    size_t searchStart = response.find("\"role\":\"assistant\"");
+    if (searchStart == std::string::npos)
+        searchStart = 0;
+    size_t keyPos = response.find("\"content\"", searchStart);
+    if (keyPos != std::string::npos) {
+        size_t colon = response.find(':', keyPos);
+        if (colon != std::string::npos) {
+            size_t firstQuote = response.find('"', colon);
+            if (firstQuote != std::string::npos) {
+                size_t i = firstQuote + 1;
+                while (i < response.size()) {
+                    char c = response[i];
+                    if (c == '\\' && i + 1 < response.size()) {
+                        // Handle simple escape sequences
+                        char next = response[i + 1];
+                        if (next == 'n') {
+                            extracted.push_back('\n');
+                        } else if (next == 'r') {
+                            // skip carriage returns in output
+                        } else {
+                            extracted.push_back(next);
+                        }
+                        i += 2;
+                        continue;
+                    }
+                    if (c == '"') {
+                        break;
+                    }
+                    extracted.push_back(c);
+                    ++i;
+                }
+            }
+        }
+    }
+
+    if (extracted.empty()) {
+        // Fallback: print raw if parsing failed
+        std::cout << response << std::endl;
+    } else {
+        std::cout << extracted << std::endl;
+    }
     return 0;
 }
 
