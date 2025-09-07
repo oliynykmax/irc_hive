@@ -243,7 +243,7 @@ void ModeCommand::execute(const Message &msg, int fd)
 		Channel backup = *ch;
 		if (msg.params.size() < 2) {
 			sendResponse(":localhost 324 " + irc->getClient(fd).getUser()->getNick() + " " + msg.params[0] + " " + ch->modeList(), fd);
-			return sendResponse(":localhost 329 " + irc->getClient(fd).getUser()->getNick() + " " + msg.params[0] + " " + ch->getTime());
+			return sendResponse(":localhost 329 " + irc->getClient(fd).getUser()->getNick() + " " + msg.params[0] + " " + ch->getTime(), fd);
 		} else if (!ch->getOperators().contains(fd))
 			return sendResponse("482 :Channel operator privileges required", fd);
 		std::string input = msg.params[1], seen;
