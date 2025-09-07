@@ -47,6 +47,7 @@
 	#include <netdb.h>
 	#include <arpa/inet.h>
 	#include <unistd.h>
+	#include <sys/wait.h> // added for waitpid used in exec curl fallback
 	#if __has_include(<openssl/ssl.h>) && __has_include(<openssl/err.h>)
 		#define DEEPSEEK_HAVE_OPENSSL 1
 		#include <openssl/ssl.h>
@@ -265,178 +266,105 @@ std::string DeepSeekClient::_httpPost(const std::string& url,
                                       const Options& opt,
                                       const std::string& apiKey) {
 #if !DEEPSEEK_HAVE_CURL
-	// -------- Raw socket + OpenSSL fallback (blocking) ----------
+	// -------- Exec curl fallback (no libcurl) ----------
+	// We delegate HTTPS + TLS handling to external 'curl' binary.
+	// Pros: rapid implementation, full TLS support if curl is installed.
+	// Cons: fork/exec overhead; API key visible in process list (security risk).
 	(void)opt;
 	if (apiKey.empty())
 		throw std::runtime_error("DeepSeekClient::_httpPost (fallback): missing API key");
 
-	// Parse URL: expect https://host[:port]/path
-	const std::string httpsPref = "https://";
-	const std::string httpPref  = "http://";
-	bool useTLS = false;
-	std::string work = url;
-	if (work.rfind(httpsPref, 0) == 0) {
-		useTLS = true;
-		work.erase(0, httpsPref.size());
-	} else if (work.rfind(httpPref, 0) == 0) {
-		work.erase(0, httpPref.size());
-	} else {
-		throw std::runtime_error("DeepSeekClient::_httpPost (fallback): URL must start with http:// or https://");
+	// Build JSON payload via stdin (safer than putting JSON on command line).
+
+	int stdinPipe[2];
+	int stdoutPipe[2];
+	if (pipe(stdinPipe) != 0 || pipe(stdoutPipe) != 0)
+		throw std::runtime_error("DeepSeekClient::_httpPost: pipe creation failed");
+
+	pid_t pid = fork();
+	if (pid < 0) {
+		close(stdinPipe[0]); close(stdinPipe[1]);
+		close(stdoutPipe[0]); close(stdoutPipe[1]);
+		throw std::runtime_error("DeepSeekClient::_httpPost: fork failed");
 	}
 
-	std::string host, path;
-	int port = useTLS ? 443 : 80;
-	size_t slash = work.find('/');
-	if (slash == std::string::npos) {
-		host = work;
-		path = "/";
-	} else {
-		host = work.substr(0, slash);
-		path = work.substr(slash);
-	}
-	size_t colon = host.find(':');
-	if (colon != std::string::npos) {
-		port = std::stoi(host.substr(colon + 1));
-		host = host.substr(0, colon);
+	if (pid == 0) {
+		// Child: setup stdin/stdout, exec curl
+		close(stdinPipe[1]); // child reads from stdinPipe[0]
+		close(stdoutPipe[0]); // child writes to stdoutPipe[1]
+		if (dup2(stdinPipe[0], STDIN_FILENO) < 0) _exit(127);
+		if (dup2(stdoutPipe[1], STDOUT_FILENO) < 0) _exit(127);
+		if (dup2(stdoutPipe[1], STDERR_FILENO) < 0) _exit(127);
+		close(stdinPipe[0]);
+		close(stdoutPipe[1]);
+		// Prepare arguments
+		std::string authHeader = "Authorization: Bearer " + apiKey;
+		std::vector<char*> argv;
+		argv.push_back(const_cast<char*>("curl"));
+		argv.push_back(const_cast<char*>("-s"));          // silent
+		argv.push_back(const_cast<char*>("-S"));          // show errors
+		argv.push_back(const_cast<char*>("--fail"));      // fail on HTTP >=400
+		argv.push_back(const_cast<char*>("-X"));
+		argv.push_back(const_cast<char*>("POST"));
+		argv.push_back(const_cast<char*>("-H"));
+		argv.push_back(const_cast<char*>("Content-Type: application/json"));
+		argv.push_back(const_cast<char*>("-H"));
+		argv.push_back(const_cast<char*>(authHeader.c_str()));
+		argv.push_back(const_cast<char*>("--data-binary"));
+		argv.push_back(const_cast<char*>("@-"));          // read body from stdin
+		argv.push_back(const_cast<char*>(url.c_str()));
+		argv.push_back(nullptr);
+		execvp("curl", argv.data());
+		_exit(127);
 	}
 
-	// Resolve host
-	struct addrinfo hints{};
-	hints.ai_family = AF_UNSPEC;
-	hints.ai_socktype = SOCK_STREAM;
-	struct addrinfo *res = nullptr;
-	int rc = getaddrinfo(host.c_str(), std::to_string(port).c_str(), &hints, &res);
-	if (rc != 0 || !res)
-		throw std::runtime_error(std::string("DNS failure: ") + gai_strerror(rc));
+	// Parent
+	close(stdinPipe[0]);
+	close(stdoutPipe[1]);
+	// Write payload to child's stdin
+	size_t written = 0;
+	while (written < jsonPayload.size()) {
+		ssize_t w = write(stdinPipe[1], jsonPayload.data() + written, jsonPayload.size() - written);
+		if (w < 0) {
+			if (errno == EINTR) continue;
+			close(stdinPipe[1]);
+			close(stdoutPipe[0]);
+			throw std::runtime_error("DeepSeekClient::_httpPost: write payload failed");
+		}
+		written += static_cast<size_t>(w);
+	}
+	close(stdinPipe[1]);
 
-	int sock = -1;
-	for (auto p = res; p; p = p->ai_next) {
-		sock = ::socket(p->ai_family, p->ai_socktype, p->ai_protocol);
-		if (sock < 0) continue;
-		if (::connect(sock, p->ai_addr, p->ai_addrlen) == 0) {
+	// Read all output
+	std::string output;
+	char buf[4096];
+	for (;;) {
+		ssize_t r = read(stdoutPipe[0], buf, sizeof(buf));
+		if (r == 0) break;
+		if (r < 0) {
+			if (errno == EINTR) continue;
 			break;
 		}
-		::close(sock);
-		sock = -1;
+		output.append(buf, r);
 	}
-	freeaddrinfo(res);
-	if (sock < 0)
-		throw std::runtime_error("DeepSeekClient::_httpPost (fallback): connect failed");
+	close(stdoutPipe[0]);
+	int status = 0;
+	waitpid(pid, &status, 0);
+	if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
+		throw std::runtime_error("DeepSeekClient::_httpPost: curl exited with error, raw output: " + output);
+	}
+	// curl outputs only the body by default (-s -S --fail) unless HTTP error occurs.
+	return output;
 
-#if DEEPSEEK_HAVE_OPENSSL
-	SSL_CTX *ctx = nullptr;
-	SSL *ssl = nullptr;
-#endif
+	// (Legacy raw-socket HTTP code removed – exec curl fallback in use.)
 
-#if DEEPSEEK_HAVE_OPENSSL
-	if (useTLS) {
-		SSL_library_init();
-		SSL_load_error_strings();
-		const SSL_METHOD *method = TLS_client_method();
-		ctx = SSL_CTX_new(method);
-		if (!ctx) {
-			::close(sock);
-			throw std::runtime_error("SSL_CTX_new failed");
-		}
-		ssl = SSL_new(ctx);
-		if (!ssl) {
-			SSL_CTX_free(ctx);
-			::close(sock);
-			throw std::runtime_error("SSL_new failed");
-		}
-		if (!SSL_set_tlsext_host_name(ssl, host.c_str())) {
-			SSL_free(ssl);
-			SSL_CTX_free(ctx);
-			::close(sock);
-			throw std::runtime_error("SNI set failed");
-		}
-		SSL_set_fd(ssl, sock);
-		if (SSL_connect(ssl) <= 0) {
-			SSL_free(ssl);
-			SSL_CTX_free(ctx);
-			::close(sock);
-			throw std::runtime_error("SSL_connect failed");
-		}
-	}
-#else
-	if (useTLS) {
-		::close(sock);
-		throw std::runtime_error("HTTPS/TLS requested but OpenSSL headers not available at build time");
-	}
-#endif
+	// (Removed obsolete raw-socket remnants)
 
-	// Build HTTP request
-	std::ostringstream req;
-	req << "POST " << path << " HTTP/1.1\r\n"
-	    << "Host: " << host << "\r\n"
-	    << "Content-Type: application/json\r\n"
-	    << "Authorization: Bearer " << apiKey << "\r\n"
-	    << "Content-Length: " << jsonPayload.size() << "\r\n"
-	    << "Connection: close\r\n\r\n"
-	    << jsonPayload;
+// (Removed unreachable legacy response buffering block)
 
-	std::string wire = req.str();
-	size_t sent = 0;
-#if DEEPSEEK_HAVE_OPENSSL
-	while (sent < wire.size()) {
-		int n = 0;
-		if (useTLS) {
-			n = SSL_write(ssl, wire.data() + sent, (int)(wire.size() - sent));
-		} else {
-			n = ::send(sock, wire.data() + sent, wire.size() - sent, 0);
-		}
-		if (n <= 0) {
-			if (useTLS) {
-				SSL_free(ssl);
-				SSL_CTX_free(ctx);
-			}
-			::close(sock);
-			throw std::runtime_error("HTTP write failed");
-		}
-		sent += (size_t)n;
-	}
-#else
-	while (sent < wire.size()) {
-		int n = ::send(sock, wire.data() + sent, wire.size() - sent, 0);
-		if (n <= 0) {
-			::close(sock);
-			throw std::runtime_error("HTTP write failed");
-		}
-		sent += (size_t)n;
-	}
-#endif
+	// (Socket handling not applicable with exec curl path)
 
-	std::string response;
-	char buf[4096];
-#if DEEPSEEK_HAVE_OPENSSL
-	for (;;) {
-		int n = useTLS ? SSL_read(ssl, buf, sizeof(buf)) : ::recv(sock, buf, sizeof(buf), 0);
-		if (n <= 0) break;
-		response.append(buf, n);
-	}
-#else
-	for (;;) {
-		int n = ::recv(sock, buf, sizeof(buf), 0);
-		if (n <= 0) break;
-		response.append(buf, n);
-	}
-#endif
-
-#if DEEPSEEK_HAVE_OPENSSL
-	if (useTLS) {
-		SSL_shutdown(ssl);
-		SSL_free(ssl);
-		SSL_CTX_free(ctx);
-	}
-#endif
-	::close(sock);
-
-	// Separate headers/body
-	size_t hdrEnd = response.find("\r\n\r\n");
-	if (hdrEnd != std::string::npos) {
-		return response.substr(hdrEnd + 4);
-	}
-	return response; // fallback: entire raw
+	// (Legacy response parse removed)
 #else
 	CURL *curl = curl_easy_init();
 	if (!curl)
