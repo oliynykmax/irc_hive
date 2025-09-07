@@ -2,6 +2,7 @@
 #include "User.hpp"
 #include "Server.hpp"
 #include <set>
+#include <ctime>
 #include <cstddef>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -27,6 +28,7 @@ class User;
  */
 class Channel {
 	private:
+		time_t _startTime;
 		string _name, _passwd = "", _topic = "";
 		size_t _limit;
 		set<int> _users, _oper, _invite;
