@@ -6,15 +6,29 @@
 #include <unistd.h>
 #include <netdb.h>
 #include <cstring>
+#include <stdexcept>
 
 const std::string HOST = "api.deepseek.com";
-const std::string API_KEY = "sk-1ae611193c1a48e9b12119aa587e4801";
-const std::string PATH = "/v1/chat/completions";  // Correct DeepSeek chat endpoint
+const std::string API_KEY = "...";
+const std::string PATH = "/v1/chat/completions";
 
-// Simple HTTP request with raw sockets
-int send_http_request(const std::string& host, const std::string& path, const std::string& payload) {
-    // Minimal fix: use system curl for HTTPS instead of raw insecure port 80 socket.
-    // NOTE: This exposes the API key in the process list. Do NOT use this approach in production.
+std::string jsonEscape(const std::string& in) {
+    std::string out;
+    out.reserve(in.size() + 16);
+    for (char c : in) {
+        switch (c) {
+            case '\\': out += "\\\\"; break;
+            case '\"': out += "\\\""; break;
+            case '\n': out += "\\n"; break;
+            case '\r': break;
+            case '\t': out += "\\t"; break;
+            default: out += c; break;
+        }
+    }
+    return out;
+}
+
+std::string send_http_request(const std::string& host, const std::string& path, const std::string& payload) {
     std::ostringstream cmd;
     cmd << "curl -sS -X POST https://" << host << path
         << " -H 'Authorization: Bearer " << API_KEY << "'"
@@ -22,28 +36,35 @@ int send_http_request(const std::string& host, const std::string& path, const st
         << " -H 'Accept: application/json'"
         << " --fail"
         << " -d '" << payload << "'";
+
     FILE* pipe = popen(cmd.str().c_str(), "r");
     if (!pipe) {
-        std::cerr << "Error: failed to run curl" << std::endl;
-        return -1;
+        throw std::runtime_error("Error: failed to run curl");
     }
+
     std::string response;
     char buf[4096];
     while (fgets(buf, sizeof(buf), pipe)) {
         response.append(buf);
     }
+
     int rc = pclose(pipe);
     if (rc != 0) {
-        std::cerr << "curl exited with code " << rc << "\nRaw/partial response:\n" << response << std::endl;
-        return -1;
+        std::ostringstream error_msg;
+        error_msg << "curl exited with code " << rc << "\nRaw/partial response:\n" << response;
+        throw std::runtime_error(error_msg.str());
     }
 
-    // Naive JSON extraction of the first assistant message "content"
+    return response;
+}
+
+std::string parse_ai_response(const std::string& response) {
     std::string extracted;
-    // Prefer content that follows an assistant role, fallback to first content field
     size_t searchStart = response.find("\"role\":\"assistant\"");
-    if (searchStart == std::string::npos)
+    if (searchStart == std::string::npos) {
         searchStart = 0;
+    }
+
     size_t keyPos = response.find("\"content\"", searchStart);
     if (keyPos != std::string::npos) {
         size_t colon = response.find(':', keyPos);
@@ -54,12 +75,11 @@ int send_http_request(const std::string& host, const std::string& path, const st
                 while (i < response.size()) {
                     char c = response[i];
                     if (c == '\\' && i + 1 < response.size()) {
-                        // Handle simple escape sequences
                         char next = response[i + 1];
                         if (next == 'n') {
                             extracted.push_back('\n');
                         } else if (next == 'r') {
-                            // skip carriage returns in output
+                            // Skip carriage returns
                         } else {
                             extracted.push_back(next);
                         }
@@ -76,56 +96,33 @@ int send_http_request(const std::string& host, const std::string& path, const st
         }
     }
 
-    if (extracted.empty()) {
-        // Fallback: print raw if parsing failed
-        std::cout << response << std::endl;
-    } else {
-        std::cout << extracted << std::endl;
-    }
-    return 0;
+    return extracted.empty() ? response : extracted;
 }
 
-int main(int argc, char* argv[]) {
-    if (argc <= 1) {
-        std::cerr << "Usage: " << (argc > 0 ? argv[0] : "program")
-                  << " \"your message\"\n";
-        return 1;
-    }
-
-    // JSON escape (minimal)
-    auto jsonEscape = [](const std::string &in) -> std::string {
-        std::string out;
-        out.reserve(in.size() + 16);
-        for (char c : in) {
-            switch (c) {
-                case '\\': out += "\\\\"; break;
-                case '\"': out += "\\\""; break;
-                case '\n': out += "\\n"; break;
-                case '\r': /* drop */ break;
-                case '\t': out += "\\t"; break;
-                default:   out += c; break;
-            }
-        }
-        return out;
-    };
-
-    std::string userInput = jsonEscape(argv[1]);
-
-    // Build JSON payload
-    std::string json = std::string("{\"model\":\"deepseek-chat\",\"messages\":[{\"role\":\"user\",\"content\":\"")
-        + userInput + "\"}],\"temperature\":0.7}";
-
-    // Because send_http_request embeds the payload inside single quotes for curl,
-    // we must shell-escape single quotes to avoid breaking the command.
+std::string talk_to_ai(const std::string& message) {
+    std::string userInput = jsonEscape(message);
+    const std::string systemPrompt = "You are a concise chatbot for irc server, that will be briefly talking to the user as a friend, be lazy and not always response right. Answer briefly. Answer in less then 500 chars. The output that you  send will be shown in the terminal";
+    std::string json =
+        "{\"model\":\"deepseek-chat\","
+        "\"messages\":["
+            "{\"role\":\"system\",\"content\":\"" + jsonEscape(systemPrompt) + "\"},"
+            "{\"role\":\"user\",\"content\":\"" + userInput + "\"}"
+        "],"
+        "\"temperature\":0.7}";
     std::string shellEscaped;
     shellEscaped.reserve(json.size() + 32);
     for (char c : json) {
-        if (c == '\'')
-            shellEscaped += "'\"'\"'"; // close ' add " ' " reopen '
-        else
+        if (c == '\'') {
+            shellEscaped += "'\"'\"'";
+        } else {
             shellEscaped += c;
+        }
     }
 
-    send_http_request(HOST, PATH, shellEscaped);
-    return 0;
+    try {
+        std::string response = send_http_request(HOST, PATH, shellEscaped);
+        return parse_ai_response(response);
+    } catch (const std::exception& e) {
+        return "Error: " + std::string(e.what());
+    }
 }
