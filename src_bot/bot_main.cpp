@@ -40,6 +40,7 @@
 #include <sys/socket.h>
 #include <fcntl.h>
 #include <poll.h>
+#include "DeepSeekClient.hpp"
 
 // -------------------------------------------------------------
 // Utility helpers
@@ -164,6 +165,9 @@ private:
 	std::string _recvBuffer;
 	bool _running {true};
 	std::chrono::steady_clock::time_point _lastServerActivity = std::chrono::steady_clock::now();
+	// LLM client (DeepSeek)
+	DeepSeekClient _llm;
+	DeepSeekClient::Options _llmOpts;
 
 	void connectSocket() {
 		addrinfo hints{};
@@ -301,7 +305,7 @@ private:
 			return;
 		}
 
-		// Handle PRIVMSG
+		// Handle PRIVMSG (core LLM integration)
 		if (msg.command == "PRIVMSG" && msg.params.size() >= 2) {
 			const std::string &target = msg.params[0];
 			const std::string &text = msg.params[1];
@@ -310,12 +314,7 @@ private:
 			bool isChannel = !target.empty() && target[0] == '#';
 			std::string replyTarget = isChannel ? target : sender;
 
-			// If message directly mentions our nick
-			if (text.find(_nick) != std::string::npos) {
-				sendLine(_fd, "PRIVMSG " + replyTarget + " :Hello " + sender + ", I am an automated bot.");
-			}
-
-			// Simple command parsing (commands start with '!')
+			// Command parsing (leading '!')
 			if (!text.empty() && text[0] == '!') {
 				auto space = text.find(' ');
 				std::string cmd = (space == std::string::npos) ? text.substr(1) : text.substr(1, space - 1);
@@ -326,14 +325,55 @@ private:
 						sendLine(_fd, "PRIVMSG " + replyTarget + " :Usage: !echo <text>");
 					else
 						sendLine(_fd, "PRIVMSG " + replyTarget + " :" + rest);
+					return;
 				} else if (cmd == "quit") {
 					sendLine(_fd, "PRIVMSG " + replyTarget + " :Goodbye.");
 					gracefulQuit("Bot shutting down");
+					return;
 				} else if (cmd == "help") {
-					sendLine(_fd, "PRIVMSG " + replyTarget + " :Commands: !echo !quit !help");
-				} else {
-					sendLine(_fd, "PRIVMSG " + replyTarget + " :Unknown command. Try !help");
+					sendLine(_fd, "PRIVMSG " + replyTarget + " :Commands: !echo !quit !help (LLM answers everything else)");
+					return;
 				}
+				// Fall through: treat unknown !command as natural language for LLM.
+			}
+
+			// Build LLM prompt (system + user)
+			std::vector<DeepSeekClient::Message> conversation;
+			conversation.push_back({
+				"system",
+				"You are an IRC assistant. Be concise, safe, and helpful. Do not leak secrets. The bot nick is " + _nick + "."
+			});
+			std::string userInput = text;
+			// If the message explicitly mentions the bot nick, strip it for cleaner prompt.
+			if (userInput.find(_nick) != std::string::npos) {
+				// Simple removal of nick occurrences.
+				size_t pos = 0;
+				while ((pos = userInput.find(_nick, pos)) != std::string::npos) {
+					userInput.erase(pos, _nick.size());
+				}
+			}
+			conversation.push_back({"user", userInput});
+
+			try {
+				// Configure options (can be tuned)
+				_llmOpts.max_tokens = 256;
+				std::string answer = _llm.complete(conversation, _llmOpts);
+
+				// Sanitize newlines (IRC messages should be single line)
+				for (char &c : answer) {
+					if (c == '\r' || c == '\n')
+						c = ' ';
+				}
+				if (answer.empty())
+					answer = "(no response)";
+				// Truncate overly long answers
+				if (answer.size() > 450) {
+					answer.erase(447);
+					answer.append("...");
+				}
+				sendLine(_fd, "PRIVMSG " + replyTarget + " :" + answer);
+			} catch (const std::exception &e) {
+				sendLine(_fd, "PRIVMSG " + replyTarget + " :[LLM error] " + std::string(e.what()));
 			}
 		}
 	}

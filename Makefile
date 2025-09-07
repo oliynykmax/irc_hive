@@ -17,6 +17,8 @@ BOT_NAME := ircbot
 BOT_SRC  := bot_main.cpp
 BOT_SRCS := $(addprefix src_bot/, $(BOT_SRC))
 BOT_OBJS := $(BOT_SRCS:src_bot/%.cpp=.build/bot_%.o)
+CURL_CFLAGS ?= $(shell pkg-config --cflags libcurl 2>/dev/null)
+CURL_LIBS   ?= $(shell pkg-config --libs libcurl 2>/dev/null || echo -lcurl)
 
 DEPS    := $(OBJS:.o=.d) $(BOT_OBJS:.o=.d)
 
@@ -29,8 +31,8 @@ $(NAME): $(OBJS)
 
 $(BOT_NAME): $(BOT_OBJS)
 	echo "🔗 Linking $(BOT_NAME)..."
-	$(CXX) $(CXXFLAGS) $(BOT_OBJS) -o $@
-	echo "🤖 Bot build complete!"
+	$(CXX) $(CXXFLAGS) $(CURL_CFLAGS) $(BOT_OBJS) -o $@ $(CURL_LIBS)
+	echo "🤖 Bot build complete (curl)"
 
 .build/%.o: src/%.cpp | .build
 	@$(CXX) $(CXXFLAGS) -MMD -MP -c $< -o $@
