@@ -5,7 +5,7 @@
  *
  * A lightweight implementation for the DeepSeekClient declared in
  * DeepSeekClient.hpp. This code attempts to use libcurl if available,
- * and otherwise throws at runtime when network functionality is invoked.
+ * and provides a raw POSIX + OpenSSL fallback when libcurl is not present.
  *
  * NOTE:
  *  - This is a minimal implementation intended for prototyping.
@@ -18,9 +18,8 @@
  *    result in std::runtime_error.
  *
  * SECURITY:
- *  - API key must be provided via constructor argument or environment
- *    variable (DEEPSEEK_API_KEY by default).
- *  - Never hardcode secrets in source code.
+ *  - API key must be provided via constructor argument.
+ *  - Never hardcode secrets in production code.
  *
  * EXTENDING:
  *  - Add rate limit/backoff strategy.
@@ -41,6 +40,20 @@
 	#include <curl/curl.h>
 #else
 	#define DEEPSEEK_HAVE_CURL 0
+#endif
+
+#if !DEEPSEEK_HAVE_CURL
+	#include <sys/socket.h>
+	#include <netdb.h>
+	#include <arpa/inet.h>
+	#include <unistd.h>
+	#if __has_include(<openssl/ssl.h>) && __has_include(<openssl/err.h>)
+		#define DEEPSEEK_HAVE_OPENSSL 1
+		#include <openssl/ssl.h>
+		#include <openssl/err.h>
+	#else
+		#define DEEPSEEK_HAVE_OPENSSL 0
+	#endif
 #endif
 
 // -------- Internal utility helpers (local to this translation unit) ------- //
@@ -252,8 +265,178 @@ std::string DeepSeekClient::_httpPost(const std::string& url,
                                       const Options& opt,
                                       const std::string& apiKey) {
 #if !DEEPSEEK_HAVE_CURL
-	(void)url; (void)jsonPayload; (void)opt; (void)apiKey;
-	throw std::runtime_error("DeepSeekClient::_httpPost: libcurl not available in this build");
+	// -------- Raw socket + OpenSSL fallback (blocking) ----------
+	(void)opt;
+	if (apiKey.empty())
+		throw std::runtime_error("DeepSeekClient::_httpPost (fallback): missing API key");
+
+	// Parse URL: expect https://host[:port]/path
+	const std::string httpsPref = "https://";
+	const std::string httpPref  = "http://";
+	bool useTLS = false;
+	std::string work = url;
+	if (work.rfind(httpsPref, 0) == 0) {
+		useTLS = true;
+		work.erase(0, httpsPref.size());
+	} else if (work.rfind(httpPref, 0) == 0) {
+		work.erase(0, httpPref.size());
+	} else {
+		throw std::runtime_error("DeepSeekClient::_httpPost (fallback): URL must start with http:// or https://");
+	}
+
+	std::string host, path;
+	int port = useTLS ? 443 : 80;
+	size_t slash = work.find('/');
+	if (slash == std::string::npos) {
+		host = work;
+		path = "/";
+	} else {
+		host = work.substr(0, slash);
+		path = work.substr(slash);
+	}
+	size_t colon = host.find(':');
+	if (colon != std::string::npos) {
+		port = std::stoi(host.substr(colon + 1));
+		host = host.substr(0, colon);
+	}
+
+	// Resolve host
+	struct addrinfo hints{};
+	hints.ai_family = AF_UNSPEC;
+	hints.ai_socktype = SOCK_STREAM;
+	struct addrinfo *res = nullptr;
+	int rc = getaddrinfo(host.c_str(), std::to_string(port).c_str(), &hints, &res);
+	if (rc != 0 || !res)
+		throw std::runtime_error(std::string("DNS failure: ") + gai_strerror(rc));
+
+	int sock = -1;
+	for (auto p = res; p; p = p->ai_next) {
+		sock = ::socket(p->ai_family, p->ai_socktype, p->ai_protocol);
+		if (sock < 0) continue;
+		if (::connect(sock, p->ai_addr, p->ai_addrlen) == 0) {
+			break;
+		}
+		::close(sock);
+		sock = -1;
+	}
+	freeaddrinfo(res);
+	if (sock < 0)
+		throw std::runtime_error("DeepSeekClient::_httpPost (fallback): connect failed");
+
+#if DEEPSEEK_HAVE_OPENSSL
+	SSL_CTX *ctx = nullptr;
+	SSL *ssl = nullptr;
+#endif
+
+#if DEEPSEEK_HAVE_OPENSSL
+	if (useTLS) {
+		SSL_library_init();
+		SSL_load_error_strings();
+		const SSL_METHOD *method = TLS_client_method();
+		ctx = SSL_CTX_new(method);
+		if (!ctx) {
+			::close(sock);
+			throw std::runtime_error("SSL_CTX_new failed");
+		}
+		ssl = SSL_new(ctx);
+		if (!ssl) {
+			SSL_CTX_free(ctx);
+			::close(sock);
+			throw std::runtime_error("SSL_new failed");
+		}
+		if (!SSL_set_tlsext_host_name(ssl, host.c_str())) {
+			SSL_free(ssl);
+			SSL_CTX_free(ctx);
+			::close(sock);
+			throw std::runtime_error("SNI set failed");
+		}
+		SSL_set_fd(ssl, sock);
+		if (SSL_connect(ssl) <= 0) {
+			SSL_free(ssl);
+			SSL_CTX_free(ctx);
+			::close(sock);
+			throw std::runtime_error("SSL_connect failed");
+		}
+	}
+#else
+	if (useTLS) {
+		::close(sock);
+		throw std::runtime_error("HTTPS/TLS requested but OpenSSL headers not available at build time");
+	}
+#endif
+
+	// Build HTTP request
+	std::ostringstream req;
+	req << "POST " << path << " HTTP/1.1\r\n"
+	    << "Host: " << host << "\r\n"
+	    << "Content-Type: application/json\r\n"
+	    << "Authorization: Bearer " << apiKey << "\r\n"
+	    << "Content-Length: " << jsonPayload.size() << "\r\n"
+	    << "Connection: close\r\n\r\n"
+	    << jsonPayload;
+
+	std::string wire = req.str();
+	size_t sent = 0;
+#if DEEPSEEK_HAVE_OPENSSL
+	while (sent < wire.size()) {
+		int n = 0;
+		if (useTLS) {
+			n = SSL_write(ssl, wire.data() + sent, (int)(wire.size() - sent));
+		} else {
+			n = ::send(sock, wire.data() + sent, wire.size() - sent, 0);
+		}
+		if (n <= 0) {
+			if (useTLS) {
+				SSL_free(ssl);
+				SSL_CTX_free(ctx);
+			}
+			::close(sock);
+			throw std::runtime_error("HTTP write failed");
+		}
+		sent += (size_t)n;
+	}
+#else
+	while (sent < wire.size()) {
+		int n = ::send(sock, wire.data() + sent, wire.size() - sent, 0);
+		if (n <= 0) {
+			::close(sock);
+			throw std::runtime_error("HTTP write failed");
+		}
+		sent += (size_t)n;
+	}
+#endif
+
+	std::string response;
+	char buf[4096];
+#if DEEPSEEK_HAVE_OPENSSL
+	for (;;) {
+		int n = useTLS ? SSL_read(ssl, buf, sizeof(buf)) : ::recv(sock, buf, sizeof(buf), 0);
+		if (n <= 0) break;
+		response.append(buf, n);
+	}
+#else
+	for (;;) {
+		int n = ::recv(sock, buf, sizeof(buf), 0);
+		if (n <= 0) break;
+		response.append(buf, n);
+	}
+#endif
+
+#if DEEPSEEK_HAVE_OPENSSL
+	if (useTLS) {
+		SSL_shutdown(ssl);
+		SSL_free(ssl);
+		SSL_CTX_free(ctx);
+	}
+#endif
+	::close(sock);
+
+	// Separate headers/body
+	size_t hdrEnd = response.find("\r\n\r\n");
+	if (hdrEnd != std::string::npos) {
+		return response.substr(hdrEnd + 4);
+	}
+	return response; // fallback: entire raw
 #else
 	CURL *curl = curl_easy_init();
 	if (!curl)
@@ -301,8 +484,29 @@ void DeepSeekClient::_httpPostStream(const std::string& url,
                                      const std::string& apiKey,
                                      StreamCallback cb) {
 #if !DEEPSEEK_HAVE_CURL
-	(void)url; (void)jsonPayload; (void)opt; (void)apiKey; (void)cb;
-	throw std::runtime_error("DeepSeekClient::_httpPostStream: libcurl not available in this build");
+	// Basic non-chunked fallback: perform a single blocking POST (same as _httpPost),
+	// then simulate a single "chunk" callback with entire response content.
+	std::string body = _httpPost(url, jsonPayload, opt, apiKey);
+	// Attempt to split by lines beginning with "data:"
+	// If body already contains SSE style lines, reuse; else treat as one chunk.
+	bool hasDataLine = body.find("\ndata:") != std::string::npos || body.rfind("data:", 0) == 0;
+	if (hasDataLine) {
+		std::istringstream iss(body);
+		std::string line;
+		while (std::getline(iss, line)) {
+			if (!line.empty() && line.back() == '\r')
+				line.pop_back();
+			_dispatchStreamPayload(line, cb);
+		}
+	} else {
+		ResponseChunk chunk;
+		chunk.content = body;
+		chunk.done = false;
+		cb(chunk);
+	}
+	ResponseChunk finalChunk;
+	finalChunk.done = true;
+	cb(finalChunk);
 #else
 	CURL *curl = curl_easy_init();
 	if (!curl)
