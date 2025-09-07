@@ -32,15 +32,14 @@ void Handler::acceptClient(int socket) {
 	struct sockaddr_in remote{};
 	socklen_t remoteLen{};
 
-	fd = accept(socket, (struct sockaddr*) &remote, &remoteLen);
+	fd = accept4(socket, (struct sockaddr*) &remote, &remoteLen, O_NONBLOCK);
 
 	if (fd > 0) {
 		cout << "A client with fd nbr " << fd << " connected" << endl;
-		Client client(fd);
-		irc->addClient(client);
+		irc->addClient(fd);
 		irc->registerHandler(fd, EPOLLIN, clientWrite);
 		irc->registerHandler(fd, EPOLLRDHUP | EPOLLHUP, clientDisconnect);
 	} else {
-		throw runtime_error("Failed creating a new TCP connection to client");
+		throw runtime_error("Handler::acceptClient: Failed creating a new TCP connection to client");
 	}
 }

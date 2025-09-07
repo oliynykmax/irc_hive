@@ -3,3 +3,4 @@ ircserv
 .clangd
 compile_commands.json
 .cache
+debug.log
