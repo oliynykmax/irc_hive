@@ -14,13 +14,19 @@ SRC    := \
 SRCS	:= $(addprefix src/, $(SRC))
 OBJS    := $(SRCS:src/%.cpp=.build/%.o)
 DEPS    := $(OBJS:.o=.d)
+BOT_SRC := bot/main_bot.cpp
+BOT_BIN := mini_bot
 
-all: $(NAME)
+all: $(NAME) $(BOT_BIN)
 
 $(NAME): $(OBJS)
 	echo "🔗 Linking $(NAME)..."
 	$(CXX) $(CXXFLAGS) $(OBJS) -o $@
 	echo "🎉 Build complete!"
+	echo "🤖 Build bot ($(BOT_BIN)) with: make $(BOT_BIN)"
+
+$(BOT_BIN): $(BOT_SRC)
+	$(CXX) $(CXXFLAGS) $(BOT_SRC) -o $(BOT_BIN)
 
 .build/%.o: src/%.cpp | .build
 	@$(CXX) $(CXXFLAGS) -MMD -MP -c $< -o $@
@@ -33,8 +39,8 @@ clean:
 	@rm -rf .build
 
 fclean: clean
-	echo "🗑️ Removing $(NAME)"
-	@rm -f $(NAME)
+	echo "🗑️ Removing $(NAME) and $(BOT_BIN)"
+	@rm -f $(NAME) $(BOT_BIN)
 
 re:
 	echo "🔄 Rebuilding..."
