@@ -9,73 +9,117 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <poll.h>
-#include <sys/wait.h>
 #include <cerrno>
+#include <stdexcept>
 
-/*
- * Super minimal IRC bot:
- * - Connects to server: host port nick channel (password optional as 5th arg)
- * - Joins channel
- * - Every PRIVMSG in channel addressed to the bot (contains its nick) => sends it to local AI helper binary (ai_test) via a fork/exec
- *   (Assumes ai_test is in ./bot/ai_test and writes answer to stdout only)
- * - Replies with the AI output truncated to 400 bytes
- *
- * NOTE:
- *  - This is intentionally minimal; no robust IRC parsing, no PING/PONG handling (add if needed).
- *  - For production you must add PING handling or connection will timeout on most servers.
- */
+/* Embedded minimal AI HTTP code (curl shell-out) */
+static const std::string AI_HOST = "api.deepseek.com";
+static const std::string AI_PATH = "/v1/chat/completions";
+static const std::string AI_KEY  = "..."; // TODO: move to env var
 
-static std::string readAllFromProcess(const std::vector<std::string>& args, const std::string& input = "") {
-    int inPipe[2];
-    int outPipe[2];
-    if (pipe(inPipe) || pipe(outPipe)) return "";
-
-    pid_t pid = fork();
-    if (pid == 0) {
-        // Child
-        dup2(inPipe[0], STDIN_FILENO);
-        dup2(outPipe[1], STDOUT_FILENO);
-        dup2(outPipe[1], STDERR_FILENO);
-        close(inPipe[1]); close(outPipe[0]);
-        std::vector<char*> cargs;
-        for (auto &a : args) cargs.push_back(const_cast<char*>(a.c_str()));
-        cargs.push_back(nullptr);
-        execvp(cargs[0], cargs.data());
-        _exit(127);
-    }
-    // Parent
-    close(inPipe[0]); close(outPipe[1]);
-    if (!input.empty()) {
-        const char* data = input.data();
-        size_t total = input.size();
-        size_t sent = 0;
-        while (sent < total) {
-            ssize_t w = write(inPipe[1], data + sent, total - sent);
-            if (w < 0) {
-                if (errno == EINTR)
-                    continue;
-                break; // give up on unrecoverable error
-            }
-            if (w == 0) {
-                // Should not happen for a pipe unless full + non-blocking (not our case), break to avoid spin
-                break;
-            }
-            sent += static_cast<size_t>(w);
+static std::string jsonEscape(const std::string& in) {
+    std::string out;
+    out.reserve(in.size() + 16);
+    for (char c : in) {
+        switch (c) {
+            case '\\': out += "\\\\"; break;
+            case '\"': out += "\\\\\""; break;
+            case '\n': out += "\\n"; break;
+            case '\r': break;
+            case '\t': out += "\\t"; break;
+            default: out += c; break;
         }
     }
-    close(inPipe[1]);
-
-    std::string out;
-    char buf[1024];
-    ssize_t n;
-    while ((n = read(outPipe[0], buf, sizeof(buf))) > 0) {
-        out.append(buf, n);
-    }
-    close(outPipe[0]);
-    int status = 0;
-    waitpid(pid, &status, 0);
     return out;
 }
+
+static std::string aiHttpPost(const std::string& payloadJsonEscapedForShell) {
+    std::ostringstream cmd;
+    cmd << "curl -sS -X POST https://" << AI_HOST << AI_PATH
+        << " -H 'Authorization: Bearer " << AI_KEY << "'"
+        << " -H 'Content-Type: application/json'"
+        << " -H 'Accept: application/json'"
+        << " --fail"
+        << " -d '" << payloadJsonEscapedForShell << "'";
+    FILE* pipe = popen(cmd.str().c_str(), "r");
+    if (!pipe) {
+        return "Error: cannot start curl";
+    }
+    std::string response;
+    char buf[4096];
+    while (fgets(buf, sizeof(buf), pipe)) {
+        response.append(buf);
+    }
+    int rc = pclose(pipe);
+    if (rc != 0) {
+        std::ostringstream err;
+        err << "Error: curl exit " << rc;
+        return err.str();
+    }
+    return response;
+}
+
+static std::string parseAI(const std::string& response) {
+    std::string extracted;
+    size_t searchStart = response.find("\"role\":\"assistant\"");
+    if (searchStart == std::string::npos) searchStart = 0;
+    size_t keyPos = response.find("\"content\"", searchStart);
+    if (keyPos != std::string::npos) {
+        size_t colon = response.find(':', keyPos);
+        if (colon != std::string::npos) {
+            size_t firstQuote = response.find('"', colon);
+            if (firstQuote != std::string::npos) {
+                size_t i = firstQuote + 1;
+                while (i < response.size()) {
+                    char c = response[i];
+                    if (c == '\\' && i + 1 < response.size()) {
+                        char n = response[i + 1];
+                        if (n == 'n') extracted.push_back('\n');
+                        else if (n == 'r') { /* skip */ }
+                        else extracted.push_back(n);
+                        i += 2;
+                        continue;
+                    }
+                    if (c == '"') break;
+                    extracted.push_back(c);
+                    ++i;
+                }
+            }
+        }
+    }
+    if (extracted.empty()) return response;
+    if (extracted.size() > 400) { extracted.erase(400); }
+    return extracted;
+}
+
+static std::string buildAIPayload(const std::string& userPrompt) {
+    const std::string systemPrompt =
+        "You are a concise chatbot for IRC. Reply casually, sometimes lazy. "
+        "Never exceed 400 characters.";
+    std::string json =
+        "{\"model\":\"deepseek-chat\","
+        "\"messages\":["
+          "{\"role\":\"system\",\"content\":\"" + jsonEscape(systemPrompt) + "\"},"
+          "{\"role\":\"user\",\"content\":\"" + jsonEscape(userPrompt) + "\"}"
+        "],"
+        "\"temperature\":0.7}";
+    // shell escape single quotes
+    std::string shellEscaped;
+    shellEscaped.reserve(json.size() + 32);
+    for (char c : json) {
+        if (c == '\'') shellEscaped += "'\"'\"'";
+        else shellEscaped += c;
+    }
+    return shellEscaped;
+}
+
+static std::string callAI(const std::string& prompt) {
+    std::string payload = buildAIPayload(prompt);
+    std::string raw = aiHttpPost(payload);
+    return parseAI(raw);
+}
+
+
 
 static bool sendLine(int fd, const std::string& line) {
     std::string wire = line + "\r\n";
@@ -99,7 +143,6 @@ int main(int argc, char* argv[]) {
     std::string channel = argv[4];
     std::string password = (argc >= 6) ? argv[5] : "";
 
-    // Resolve
     struct addrinfo hints{}, *res = nullptr;
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_family = AF_UNSPEC;
@@ -125,7 +168,6 @@ int main(int argc, char* argv[]) {
     sendLine(sock, "NICK " + nick);
     sendLine(sock, "USER " + nick + " 0 * :" + nick);
     sendLine(sock, "JOIN " + channel);
-
     std::string buffer;
     buffer.reserve(8192);
 
@@ -141,40 +183,30 @@ int main(int argc, char* argv[]) {
             std::string line = buffer.substr(0, pos);
             buffer.erase(0, pos + 2);
 
-            // Basic PING/PONG
             if (line.rfind("PING", 0) == 0) {
                 sendLine(sock, "PONG " + line.substr(5));
                 continue;
             }
 
-            // Look for PRIVMSG
-            // Format: :prefix PRIVMSG target :message
             size_t priv = line.find(" PRIVMSG ");
             if (priv != std::string::npos) {
                 size_t msgStart = line.find(" :", priv);
                 if (msgStart != std::string::npos) {
                     std::string target = line.substr(priv + 9, msgStart - (priv + 9));
                     std::string text = line.substr(msgStart + 2);
-                    // If it is channel message and contains our nick, call AI
                     bool addressed = (target == channel && text.find(nick) != std::string::npos);
-                    // Direct message
                     if (target == nick) addressed = true;
-
                     if (addressed) {
                         std::string prompt = text;
-                        // Strip nick mention
                         if (prompt.find(nick) != std::string::npos) {
                             size_t p;
                             while ((p = prompt.find(nick)) != std::string::npos) {
                                 prompt.erase(p, nick.size());
                             }
                         }
-                        // Trim spaces
                         while (!prompt.empty() && isspace((unsigned char)prompt.front())) prompt.erase(prompt.begin());
                         while (!prompt.empty() && isspace((unsigned char)prompt.back())) prompt.pop_back();
-
-                        std::vector<std::string> aiArgs = {"./bot/ai_test"};
-                        std::string aiOut = readAllFromProcess(aiArgs, prompt + "\n");
+                        std::string aiOut = callAI(prompt);
                         if (aiOut.size() > 400) aiOut.erase(400);
                         std::stringstream reply;
                         reply << "PRIVMSG " << (target == nick ? line.substr(1, line.find('!') - 1) : channel)
@@ -185,7 +217,6 @@ int main(int argc, char* argv[]) {
             }
         }
     }
-
     close(sock);
     return 0;
 }
