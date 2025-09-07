@@ -11,10 +11,7 @@ class User;
  * @class Client
  * @brief Handles events on files registered to epoll
  * @param _IN function pointer for reading input
- * @param _OUT function pointer for writing output
  * @param _RDHUP function pointer for when sending end closes
- * @param _PRI function pointer for an important message
- * @param _ERR function pointer for handling errors
  * @param _HUP function pointer for disconnects
  * @param _fd file descriptor of a network socket
  * @param _initialized state of epoll registration
@@ -23,10 +20,7 @@ class User;
 class Client {
 	private:
 		std::function<void(int)> _IN	=	nullptr;
-		std::function<void(int)> _OUT	=	nullptr;
 		std::function<void(int)> _RDHUP	=  	nullptr;
-		std::function<void(int)> _PRI	=	nullptr;
-		std::function<void(int)> _ERR	=	nullptr;
 		std::function<void(int)> _HUP	= 	nullptr;
 		User* _self;
 		bool _authenticated = false;
