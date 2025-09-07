@@ -194,9 +194,8 @@ static CurlGlobal g_curlGlobal; // ensure global init
 DeepSeekClient::DeepSeekClient(std::string apiKey)
 : _apiKey(std::move(apiKey))
 {
-	if (_apiKey.empty()) {
-		_apiKey = getKeyFromEnv();
-	}
+	// API key is taken as provided (constructor default supplies one).
+	// No environment lookup performed here anymore.
 }
 
 void DeepSeekClient::_validateMessages(const std::vector<Message>& messages) {

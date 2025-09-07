@@ -6,11 +6,7 @@
  * DeepSeek API (chat/completions style). The implementation should live in
  * a corresponding DeepSeekClient.cpp file.
  *
- * IMPORTANT:
- *  - Do NOT hardcode API keys in source control.
- *  - Provide the key at runtime via an environment variable:
- *        export DEEPSEEK_API_KEY="sk-................"
- *  - Or pass it explicitly when constructing DeepSeekClient.
+
  *
  * Minimal usage example (synchronous):
  *
@@ -88,23 +84,15 @@ public:
      * Construct a client.
      * If apiKey is empty, attempts lookup from the provided environment variable name.
      */
-    explicit DeepSeekClient(std::string apiKey = getKeyFromEnv());
-
-    /*
-     * Retrieve the API key from an environment variable (default: DEEPSEEK_API_KEY).
-     * Returns empty string if not set (caller/constructor may treat absence as error).
-     */
-    static std::string getKeyFromEnv(const char* envName = "DEEPSEEK_API_KEY") {
-        const char* v = std::getenv(envName);
-        return v ? std::string(v) : std::string();
-    }
+    explicit DeepSeekClient(std::string apiKey = "sk-11de78527fc6478194ef6eaef3b12ce5");
 
     /*
      * Perform a synchronous completion request.
      * Throws std::runtime_error on network / protocol / JSON errors.
      * Returns assistant response as a single consolidated string (first choice).
      */
-    std::string complete(const std::vector<Message>& messages, const Options& opt = Options());
+    std::string complete(const std::vector<Message>& messages, const Options& opt);
+    std::string complete(const std::vector<Message>& messages);
 
     /*
      * Perform a streaming completion request.
@@ -162,6 +150,9 @@ private:
     // Utility: throw if api key missing.
     static void _ensureKeyPresent(const std::string& key);
 };
+inline std::string DeepSeekClient::complete(const std::vector<DeepSeekClient::Message>& messages) {
+    return complete(messages, Options());
+}
 
 /*
  * SECURITY NOTE:
