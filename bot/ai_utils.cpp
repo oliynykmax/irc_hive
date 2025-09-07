@@ -85,13 +85,47 @@ int send_http_request(const std::string& host, const std::string& path, const st
     return 0;
 }
 
-int main() {
-    std::string payload = R"({
-        "model": "deepseek-chat",
-        "messages": [{"role": "user", "content": "Hello, who are you?"}],
-        "temperature": 0.7
-    })";
-    send_http_request(HOST, PATH, payload);
+int main(int argc, char* argv[]) {
+    if (argc <= 1) {
+        std::cerr << "Usage: " << (argc > 0 ? argv[0] : "program")
+                  << " \"your message\"\n";
+        return 1;
+    }
 
+    // JSON escape (minimal)
+    auto jsonEscape = [](const std::string &in) -> std::string {
+        std::string out;
+        out.reserve(in.size() + 16);
+        for (char c : in) {
+            switch (c) {
+                case '\\': out += "\\\\"; break;
+                case '\"': out += "\\\""; break;
+                case '\n': out += "\\n"; break;
+                case '\r': /* drop */ break;
+                case '\t': out += "\\t"; break;
+                default:   out += c; break;
+            }
+        }
+        return out;
+    };
+
+    std::string userInput = jsonEscape(argv[1]);
+
+    // Build JSON payload
+    std::string json = std::string("{\"model\":\"deepseek-chat\",\"messages\":[{\"role\":\"user\",\"content\":\"")
+        + userInput + "\"}],\"temperature\":0.7}";
+
+    // Because send_http_request embeds the payload inside single quotes for curl,
+    // we must shell-escape single quotes to avoid breaking the command.
+    std::string shellEscaped;
+    shellEscaped.reserve(json.size() + 32);
+    for (char c : json) {
+        if (c == '\'')
+            shellEscaped += "'\"'\"'"; // close ' add " ' " reopen '
+        else
+            shellEscaped += c;
+    }
+
+    send_http_request(HOST, PATH, shellEscaped);
     return 0;
 }
