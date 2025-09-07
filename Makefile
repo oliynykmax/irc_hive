@@ -23,10 +23,10 @@ CURL_LIBS   ?= $(shell pkg-config --libs libcurl 2>/dev/null)
 # Graceful fallback: if libcurl not found, disable LLM features instead of failing the link
 ifeq ($(strip $(CURL_LIBS)),)
   BOT_CURL_DISABLED := 1
-  CURL_NOTE := "(no libcurl found; LLM disabled)"
+  CURL_NOTE := no_libcurl_found_LLM_disabled
   CURL_DEFS := -DDEEPSEEK_NO_CURL
 else
-  CURL_NOTE := "(curl enabled)"
+  CURL_NOTE := curl_enabled
   CURL_DEFS :=
 endif
 
@@ -40,10 +40,10 @@ $(NAME): $(OBJS)
 	echo "🎉 Build complete!"
 
 $(BOT_NAME): $(BOT_OBJS)
-	echo "🔗 Linking $(BOT_NAME)..."
+	echo "Linking $(BOT_NAME)..."
 	$(CXX) $(CXXFLAGS) $(CURL_CFLAGS) $(CURL_DEFS) $(BOT_OBJS) -o $@ $(CURL_LIBS)
-	echo "🤖 Bot build complete $(CURL_NOTE)"
-	echo "Note: $(CURL_NOTE)" 
+	echo "Bot build complete $(CURL_NOTE)"
+	@true
 
 .build/%.o: src/%.cpp | .build
 	@$(CXX) $(CXXFLAGS) -MMD -MP -c $< -o $@
