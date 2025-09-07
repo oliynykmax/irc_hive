@@ -15,7 +15,7 @@
 /* Embedded minimal AI HTTP code (curl shell-out) */
 static const std::string AI_HOST = "api.deepseek.com";
 static const std::string AI_PATH = "/v1/chat/completions";
-static const std::string AI_KEY  = "..."; // TODO: move to env var
+static const std::string AI_KEY  = "sk-f8805d737ab14ddcbd83ebe3ec36f1f9";
 
 static std::string jsonEscape(const std::string& in) {
     std::string out;
@@ -103,7 +103,6 @@ static std::string buildAIPayload(const std::string& userPrompt) {
           "{\"role\":\"user\",\"content\":\"" + jsonEscape(userPrompt) + "\"}"
         "],"
         "\"temperature\":0.7}";
-    // shell escape single quotes
     std::string shellEscaped;
     shellEscaped.reserve(json.size() + 32);
     for (char c : json) {
@@ -176,8 +175,6 @@ int main(int argc, char* argv[]) {
         ssize_t n = recv(sock, temp, sizeof(temp), 0);
         if (n <= 0) break;
         buffer.append(temp, n);
-
-        // Process complete lines
         size_t pos;
         while ((pos = buffer.find("\r\n")) != std::string::npos) {
             std::string line = buffer.substr(0, pos);
@@ -194,8 +191,19 @@ int main(int argc, char* argv[]) {
                 if (msgStart != std::string::npos) {
                     std::string target = line.substr(priv + 9, msgStart - (priv + 9));
                     std::string text = line.substr(msgStart + 2);
-                    bool addressed = (target == channel && text.find(nick) != std::string::npos);
-                    if (target == nick) addressed = true;
+                    // Reply to every channel message (except the bot's own) or any direct message
+                    std::string senderNick;
+                    if (line.size() > 1) {
+                        size_t excl = line.find('!');
+                        if (excl != std::string::npos && excl > 1)
+                            senderNick = line.substr(1, excl - 1);
+                    }
+                    bool isOwn = (!senderNick.empty() && senderNick == nick);
+                    bool addressed = false;
+                    if (target == channel && !isOwn)
+                        addressed = true;
+                    if (target == nick && !isOwn)
+                        addressed = true;
                     if (addressed) {
                         std::string prompt = text;
                         if (prompt.find(nick) != std::string::npos) {
