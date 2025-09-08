@@ -1,7 +1,7 @@
 #include "Server.hpp"
 
 Server::Server(std::string passwd) :
-_startTime(time(NULL)),
+_startTime(time(nullptr)),
 _fd(epoll_create1(0)),
 _password(passwd)
 {
@@ -90,8 +90,10 @@ void Server::poll(int tout) {
 		for (uint32_t type : eventTypes) {
 			if (_clients.count(fd) == 0)
 				return ;
-			if (_clients.at(fd).handler(type & event))
+			if (_clients.at(fd).handler(type & event)) {
+				[[maybe_unused]]
 				auto fut = std::async(std::launch::async, _clients.at(fd).getHandler(type & event), fd);
+			}
 		}
 
 		if (event & (EPOLLRDHUP & EPOLLHUP))
