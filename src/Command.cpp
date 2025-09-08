@@ -367,7 +367,7 @@ void WhoCommand::execute(const Message &msg, int fd)
 		const User *user = irc->getClient(id).getUser();
 		sendResponse("352 " + msg.params[0] + " "
 			+ user->getUser() + " " + user->getHost() +
-				" localhost" + user->getNick() + " H", fd);
+				" localhost " + user->getNick() + " H", fd);
 	}
 	for (auto id : ch->getOperators())
 	{
