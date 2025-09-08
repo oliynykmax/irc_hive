@@ -64,29 +64,28 @@ void Channel::unsetMode(string umode)  {
 }
 
 bool Channel::setTopic(int user, string topic) {
-	if(_oper.contains(user)) {
-		_topic = topic;
-		string message = ":" + irc->getClient(user).getUser()->getNick() + " TOPIC " + _name + " :" + topic + "\r\n";
-		auto bytes = send(user, message.data(), message.size(), 0);
-		if (bytes == -1)
-			return false;
-		for (auto users : _users) {
-			if (users == user)
-				continue;
-			auto bytes = send(users, message.data(), message.size(), 0);
-			if (bytes == -1)
-				return false;
-		}
-		for (auto users : _oper) {
-			if (users == user)
-				continue;
-			auto bytes = send(users, message.data(), message.size(), 0);
-			if (bytes == -1)
-				return false;
-		}
-	} else {
+	if(_mode.contains('t') && !_oper.contains(user)) {
 		return false;
 	}
+	_topic = topic;
+	string message = ":" + irc->getClient(user).getUser()->getNick() + " TOPIC " + _name + " :" + topic + "\r\n";
+	auto bytes = send(user, message.data(), message.size(), 0);
+	if (bytes == -1)
+		return false;
+	for (auto users : _users) {
+		if (users == user)
+			continue;
+		auto bytes = send(users, message.data(), message.size(), 0);
+		if (bytes == -1)
+			return false;
+	}
+	for (auto users : _oper) {
+		if (users == user)
+			continue;
+		auto bytes = send(users, message.data(), message.size(), 0);
+		if (bytes == -1)
+			return false;
+	} 
 	return true;
 }
 
