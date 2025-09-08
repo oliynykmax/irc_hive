@@ -3,8 +3,7 @@
 using namespace std;
 
 void Handler::clientWrite(int fd) {
-	int messageLen = 0;
-	string msg;
+	ssize_t messageLen = 0;
 	vector<char> buf(BUFSIZ);
 	queue<unique_ptr<Message>> msg_queue;
 	RecvParser	parser(msg_queue);
