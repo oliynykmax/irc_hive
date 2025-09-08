@@ -85,7 +85,7 @@ bool Channel::setTopic(int user, string topic) {
 		auto bytes = send(users, message.data(), message.size(), 0);
 		if (bytes == -1)
 			return false;
-	} 
+	}
 	return true;
 }
 
@@ -226,8 +226,7 @@ void Channel::makeOperator(int fd, string uname) {
 		throw std::runtime_error("");
 	_users.erase(newOp);
 	_oper.emplace(newOp);
-	string response = irc->getClient(fd).getUser()->createPrefix() + " MODE " + _name + " +o " + uname + "\r\n";
-	send(newOp, response.data(), response.size(), 0);
+	message(-1, irc->getClient(fd).getUser()->createPrefix() + " MODE " + _name + " +o " + uname);
 }
 
 void Channel::invite(int fd) {
@@ -247,7 +246,7 @@ bool Channel::kick(int op, int user) {
 bool Channel::message(int user, string msg, string type,  string name) {
 	string message;
 	if (type.empty())
-		message = msg;
+		message = msg + "\r\n";
 	else if (name.empty())
 		message = ":" + irc->getClient(user).getUser()->getNick() + " " + type + " " + _name + " :" + msg + "\r\n";
 	else

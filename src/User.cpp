@@ -11,9 +11,9 @@ void User::quit(int fd, string msg) {
 	irc->removeClient(fd);
 }
 
-void User::setNick(int fd, string name) {
+void User::setNick(string name) {
 	for (auto channels : _channels) {
-		channels->message(fd, createPrefix(), "NICK", name);
+		channels->message(-1, createPrefix(), "NICK", name);
 	}
 	_nick = name;
 }

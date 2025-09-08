@@ -33,9 +33,7 @@ void NickCommand::execute(const Message &msg, int fd)
 		if (client.second.getUser()->getNick() == newNick)
 			return sendResponse("433 * " + newNick + " :Nickname is already in use", fd);
 	}
-	irc->getClient(fd).getUser()->setNick(fd, newNick);
-	sendResponse(irc->getClient(fd).getUser()->createPrefix()
-		+ " NICK :" + newNick, fd);
+	irc->getClient(fd).getUser()->setNick(newNick);
 }
 
 void UserCommand::execute(const Message &msg, int fd)
@@ -168,10 +166,7 @@ void KickCommand::execute(const Message &msg, int fd)
 		response.append(" " + nick);
 	else
 		response.append(" :" + msg.params[2]);
-	for (auto user : ch->getUsers())
-		sendResponse(response, user);
-	for (auto user : ch->getOperators())
-		sendResponse(response, user);
+	ch->message(fd, response);
 	ch->kick(fd, target->_fd);
 }
 
@@ -255,8 +250,7 @@ void ModeCommand::execute(const Message &msg, int fd)
 			}
 		std::string enable, disable;
 		bool plus, valid;
-		auto c = input.begin();
-		while (c != input.end())
+		for (auto c = input.begin(); c != input.end();)
 			if (*c == '+'|| *c == '-') {
 				plus = (*c == '+');
 				++c;
@@ -312,8 +306,11 @@ void ModeCommand::execute(const Message &msg, int fd)
 			*ch = backup;
 			return ;
 		}
+		if (disable.empty() && enable == "o")
+			return ;
 		ch->setMode(enable);
 		ch->unsetMode(disable);
+		ch->message(-1, ":localhost 324 " + irc->getClient(fd).getUser()->getNick() + " " + msg.params[0] + " " + ch->modeList());
 	};
 
 	auto user = [&]() {
@@ -392,15 +389,9 @@ void PassCommand::execute(const Message &msg, int fd)
 	if (irc->checkPassword())
 		return ;
 	else if (!msg.params.empty() && irc->checkPassword(msg.params[0]))
-	{
-		irc->getClient(fd).authenticate();
-		return ;
-	}
-	else
-	{
-		sendResponse("464 " + irc->getClient(fd).getUser()->getNick() + " :Incorrect password", fd);
-		irc->removeClient(fd);
-	}
+		return irc->getClient(fd).authenticate();
+	sendResponse("464 " + irc->getClient(fd).getUser()->getNick() + " :Incorrect password", fd);
+	irc->removeClient(fd);
 }
 
 void UnknownCommand::execute(const Message &msg, int fd)
