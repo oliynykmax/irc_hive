@@ -12,8 +12,9 @@ void User::quit(int fd, string msg) {
 }
 
 void User::setNick(int fd, string name) {
+	(void)fd;
 	for (auto channels : _channels) {
-		channels->message(fd, createPrefix(), "NICK", name);
+		channels->message(-1, createPrefix(), "NICK", name);
 	}
 	_nick = name;
 }
