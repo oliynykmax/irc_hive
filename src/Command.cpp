@@ -194,9 +194,8 @@ void InviteCommand::execute(const Message &msg, int fd)
 			return sendResponse("442: You're not on that channel", fd);
 		else if (ch->getMode().contains('i') && !ch->getOperators().contains(fd))
 			return sendResponse("482 :You're not a channel operator", fd);
-		else if (ch->getUsers().contains(target->_fd))
-			return sendResponse("443 :User already on channel", fd);
-		else if (ch->getOperators().contains(target->_fd))
+		else if (ch->getUsers().contains(target->_fd) ||
+				ch->getOperators().contains(target->_fd))
 			return sendResponse("443 :User already on channel", fd);
 		else
 			ch->invite(target->_fd);
