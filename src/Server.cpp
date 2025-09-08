@@ -40,8 +40,8 @@ Channel* Server::findChannel(std::string name) {
 	return &(ret->second);
 }
 
-void Server::addClient(Client& client) {
-	_clients.try_emplace(client._fd, client);
+void Server::addClient(int fd) {
+	_clients.try_emplace(fd, fd);
 }
 
 void Server::removeClient(const int fd) {
@@ -116,7 +116,7 @@ void Server::registerHandler(const int fd, uint32_t eventType, std::function<voi
 }
 
 void Server::addOwnSocket(int sockfd) {
-	_clients.try_emplace(sockfd, Client(sockfd));
+	_clients.try_emplace(sockfd, sockfd);
 }
 
 std::string Server::getTime(void) const {
