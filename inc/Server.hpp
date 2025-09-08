@@ -14,7 +14,7 @@
 #include <sys/epoll.h>
 #include <unordered_map>
 
-constexpr static const std::array<uint32_t, 6> eventTypes{EPOLLIN, EPOLLOUT, EPOLLRDHUP, EPOLLPRI, EPOLLERR, EPOLLRDHUP};
+constexpr static const std::array<uint32_t, 3> eventTypes{EPOLLIN, EPOLLRDHUP, EPOLLRDHUP};
 
 class Server {
 	private:
@@ -29,7 +29,7 @@ class Server {
 	public:
 		Server(std::string passwd = "");
 		virtual ~Server();
-		void addClient(Client& client);
+		void addClient(int fd);
 		/*
 		* @brief Constructs a Channel instance and tries to add it to map.
 		* @param name string of the #channel to JOIN

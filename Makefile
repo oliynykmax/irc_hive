@@ -12,36 +12,35 @@ SRC    := \
 		CommandDispatcher.cpp \
 		Handler.cpp
 SRCS	:= $(addprefix src/, $(SRC))
-OBJS    := $(SRCS:.cpp=.o)
+OBJS    := $(SRCS:src/%.cpp=.build/%.o)
 DEPS    := $(OBJS:.o=.d)
 
 all: $(NAME)
 
 $(NAME): $(OBJS)
-	@echo "🔗 Linking $(NAME)..."
+	echo "🔗 Linking $(NAME)..."
 	$(CXX) $(CXXFLAGS) $(OBJS) -o $@
-	@echo "🎉 Build complete!"
+	echo "🎉 Build complete!"
 
 .build/%.o: src/%.cpp | .build
-	$(CXX) $(CXXFLAGS) -MMD -MP -c $< -o $@
+	@$(CXX) $(CXXFLAGS) -MMD -MP -c $< -o $@
 
 .build:
-	mkdir -p .build
+	@mkdir -p .build
 
 clean:
-	@echo "🧹 Cleaning..."
-	rm -rf $(OBJS)
-	rm -rf .build
+	echo "🧹 Cleaning..."
+	@rm -rf .build
 
 fclean: clean
-	@echo "🗑️ Removing $(NAME)"
-	rm -f $(NAME)
+	echo "🗑️ Removing $(NAME)"
+	@rm -f $(NAME)
 
 re:
-	@echo "🔄 Rebuilding..."
+	echo "🔄 Rebuilding..."
 	$(MAKE) --no-print-directory fclean
 	$(MAKE) --no-print-directory all
 
 -include $(DEPS)
-
+.SILENT:
 .PHONY: all clean fclean re
