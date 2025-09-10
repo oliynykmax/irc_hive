@@ -1,4 +1,5 @@
 #include "Command.hpp"
+#include <cstddef>
 
 static void debugLog(const Message &msg)
 {
@@ -166,6 +167,7 @@ void KickCommand::execute(const Message &msg, int fd)
 		response.append(" " + nick);
 	else
 		response.append(" :" + msg.params[2]);
+	sendResponse(response, fd);
 	ch->message(fd, response);
 	ch->kick(fd, target->_fd);
 }
@@ -228,6 +230,8 @@ void TopicCommand::execute(const Message &msg, int fd)
 	ch->setTopic(fd, msg.params[1]);
 }
 
+constexpr std::string supported = "itkol", requireParam = "klo";
+
 void ModeCommand::execute(const Message &msg, int fd)
 {
 	auto channel = [&]() {
@@ -240,30 +244,18 @@ void ModeCommand::execute(const Message &msg, int fd)
 			return sendResponse(":localhost 329 " + irc->getClient(fd).getUser()->getNick() + " " + msg.params[0] + " " + ch->getTime(), fd);
 		} else if (!ch->getOperators().contains(fd))
 			return sendResponse("482 :Channel operator privileges required", fd);
-		std::string input = msg.params[1], seen;
-		for (auto c = seen.begin(); c != seen.end(); ++c)
-			if (*c != '-' && *c != '+') {
-				if (seen.find(*c) != std::string::npos)
-					return sendResponse("472 :Unknown mode", fd);
-				seen += *c;
-			}
-		std::string enable, disable;
-		bool plus, valid;
-		for (auto c = input.begin(); c != input.end();)
-			if (*c == '+'|| *c == '-') {
+		std::string input = msg.params[1], enable, disable;
+		bool plus, valid = true;
+		for (auto c = input.begin(); c != input.end(); )
+			if ((*c == '+'|| *c == '-') && valid) {
 				plus = (*c == '+');
 				++c;
-				valid = false;
-				while (c != input.end() && std::isalpha(*c)) {
-					valid = true;
+				for (valid = false; c != input.end() && std::isalpha(*c); c++) {
 					plus ? enable += *c : disable += *c;
-					++c;
+					valid = true;
 				}
-				if (!valid)
-					return sendResponse("472 :Unknown mode", fd);
 			} else
 				return sendResponse("472 :Unknown mode", fd);
-		std::string supported = "itkol", requireParam = "klo";
 		size_t paramsNeeded = 2;
 		for (auto c = enable.begin(); c != enable.end(); ++c)
 			if ((supported.find(*c) == std::string::npos)
@@ -280,9 +272,9 @@ void ModeCommand::execute(const Message &msg, int fd)
 		int index = 2;
 		try	{
 			for (auto c : enable) {
-				if (c == 'k')
+				if (c == 'k') {
 					ch->setPassword(msg.params[index++]);
-				else if (c == 'l') {
+				} else if (c == 'l') {
 					try {
 						ch->setLimit(std::stoul(msg.params[index++]));
 					} catch (std::exception &e) {
