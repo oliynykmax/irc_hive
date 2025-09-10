@@ -14,7 +14,7 @@
 #include <sys/epoll.h>
 #include <unordered_map>
 
-constexpr static const std::array<uint32_t, 3> eventTypes{EPOLLIN, EPOLLRDHUP, EPOLLRDHUP};
+constexpr static const std::array<uint32_t, 3> eventTypes{EPOLLIN, EPOLLHUP, EPOLLRDHUP};
 
 class Server {
 	private:
