@@ -3,7 +3,7 @@
 /**
  * CommandDispatcher installs seperate handlers for each command at construction
  */
-CommandDispatcher::CommandDispatcher(void)
+CommandDispatcher::CommandDispatcher(void) : _default(std::make_unique<UnknownCommand>())
 {
 	_handlers["NICK"] = std::make_unique<NickCommand>();
 	_handlers["USER"] = std::make_unique<UserCommand>();
@@ -46,13 +46,13 @@ bool	CommandDispatcher::dispatch(const std::unique_ptr<Message> &msg, int fd)
 			}
 			cmd->second->execute(*msg, fd);
 			if (msg->command != "QUIT" &&
-				!irc->getClient(fd).getUser()->getNick().empty() &&
-				!irc->getClient(fd).getUser()->getUser().empty() &&
-				!irc->getClient(fd).accessRegistered())
+				not irc->getClient(fd).getUser()->getNick().empty() &&
+				not irc->getClient(fd).getUser()->getUser().empty() &&
+				not irc->getClient(fd).accessRegistered())
 				_welcome(fd);
 		}
 		else
-			_default.execute(*msg, fd);
+			_default->execute(*msg, fd);
 	}
 	catch (std::exception &e)
 	{

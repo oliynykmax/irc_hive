@@ -3,9 +3,9 @@ CXX     := c++
 CXXFLAGS:= -Wall -Wextra -Werror -std=c++20 -Iinc
 SRC    := \
 		main.cpp \
-		User.cpp \
-		Channel.cpp \
 		Server.cpp \
+		Channel.cpp \
+		User.cpp \
 		RecvParser.cpp \
 		Client.cpp \
 		Command.cpp \

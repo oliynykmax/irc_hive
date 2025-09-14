@@ -12,6 +12,7 @@ namespace {
 }
 
 int main(int argc, char *argv[]) {
+
 	if (argc != 2 && argc != 3) {
 		cerr << "Usage ./ircserv [port] <password>" << endl;
 		return 1;
@@ -43,5 +44,6 @@ int main(int argc, char *argv[]) {
 			cerr << err.what() << endl;
 		}
 	}
+
 	delete irc;
 }
