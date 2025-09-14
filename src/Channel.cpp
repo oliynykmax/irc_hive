@@ -44,7 +44,6 @@ const string Channel::getTime(void) const {
 
 void Channel::setLimit(size_t limit) {
 	_limit = limit;
-
 }
 
 void Channel::setMode(string mode) {
@@ -64,28 +63,12 @@ void Channel::unsetMode(string umode)  {
 }
 
 bool Channel::setTopic(int user, string topic) {
-	if(_mode.contains('t') && !_oper.contains(user)) {
+	if(_mode.contains('t') && not _oper.contains(user)) {
 		return false;
 	}
 	_topic = topic;
-	string message = ":" + irc->getClient(user).getUser()->getNick() + " TOPIC " + _name + " :" + topic + "\r\n";
-	auto bytes = send(user, message.data(), message.size(), 0);
-	if (bytes == -1)
-		return false;
-	for (auto users : _users) {
-		if (users == user)
-			continue;
-		auto bytes = send(users, message.data(), message.size(), 0);
-		if (bytes == -1)
-			return false;
-	}
-	for (auto users : _oper) {
-		if (users == user)
-			continue;
-		auto bytes = send(users, message.data(), message.size(), 0);
-		if (bytes == -1)
-			return false;
-	}
+	string response = ":" + irc->getClient(user).getUser()->getNick() + " TOPIC " + _name + " :" + topic + "\r\n";
+	message(-1, response);
 	return true;
 }
 
@@ -98,7 +81,7 @@ bool Channel::checkUser(int user) {
 const string Channel::addUser(int user, string passwd) {
 	string ret;
 	const string nick = irc->getClient(user).getUser()->getNick();
-	if (!checkUser(user))
+	if (not checkUser(user))
 		ret = "443 " + nick + " "
 		 + _name + " :You are already on the channel";
 	else if (_mode.contains('l') && _users.size() + _oper.size() >= _limit)
@@ -243,8 +226,9 @@ bool Channel::kick(int op, int user) {
 	}
 }
 
-bool Channel::message(int user, string msg, string type,  string name) {
+bool Channel::message(int user, string msg, string type, string name) {
 	string message;
+
 	if (type.empty())
 		message = msg + "\r\n";
 	else if (name.empty())

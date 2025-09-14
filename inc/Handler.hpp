@@ -11,6 +11,7 @@
 #include <sys/types.h>
 #include <netinet/in.h>
 
+class Server;
 extern Server *irc;
 
 class Handler {
