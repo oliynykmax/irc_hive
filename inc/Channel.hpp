@@ -7,14 +7,13 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 
-class Server;
-
 using std::set;
 using std::string;
 
+class Server;
 extern Server *irc;
-
 class User;
+
 
 /*
  * @class Channel
@@ -29,7 +28,7 @@ class User;
 class Channel {
 	private:
 		time_t _startTime;
-		string _name, _passwd = "", _topic = "";
+		string _name, _passwd, _topic;
 		size_t _limit;
 		set<int> _users, _oper, _invite;
 		set<char> _mode{'s'};

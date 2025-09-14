@@ -6,6 +6,9 @@
 #include "Command.hpp"
 #include "Message.hpp"
 
+class ICommand;
+class CommandDispatcher;
+
 /**
  * @class	CommandDispatcher
  * @brief	A class for executing commands received from parser
