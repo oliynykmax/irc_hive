@@ -1,5 +1,6 @@
 .build
 ircserv
+ircbot
 .clangd
 compile_commands.json
 .cache
