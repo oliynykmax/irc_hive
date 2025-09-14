@@ -4,12 +4,14 @@ Server::Server(std::string port, std::string passwd) :
 _startTime(time(nullptr)),
 _fd(epoll_create1(0)),
 _sock(socket(AF_INET, SOCK_STREAM, 0)),
-_port(stoi(port)),
+_checker(0),
+_port(stoi(port, &_checker)),
 _password(passwd)
 {
 	if(_fd == -1)
 		throw std::runtime_error("Server::Server: ERROR - Failed to create epoll file");
-
+	else if (port[_checker])
+		throw std::runtime_error("Server::Server: ERROR - Bad port number " + port);
 	auto optval = 1;
 	setsockopt(_sock, SOL_SOCKET, SO_REUSEPORT, &optval, sizeof(optval));
 	struct sockaddr_in sa_bindy{};
@@ -20,18 +22,17 @@ _password(passwd)
 	if (bind(_sock, (struct sockaddr *)&sa_bindy, sizeof(sa_bindy))) {
 		close(_fd);
 		close(_sock);
-		throw std::runtime_error("Server::Server: ERROR - Binding failed " + port + " " + std::to_string(INADDR_ANY));
+		throw std::runtime_error("Server::Server: ERROR - Binding failed to " + port);
 	}
 
 	if (listen(_sock, 10)) {
 		close(_fd);
 		close(_sock);
-		throw std::runtime_error("Listening on the port failed");
+		throw std::runtime_error("Server::Server: ERROR - Failed listen on port " + port);
 	}
 
 	_events.reserve(_max_events * sizeof(epoll_event));
  	_addOwnSocket(_sock);
-    registerHandler(_sock, EPOLLIN, [](int socket) { Handler::acceptClient(socket); });
 }
 
 Server::~Server() { close(_fd); close(_sock); }
@@ -143,6 +144,7 @@ void Server::registerHandler(const int fd, uint32_t eventType, std::function<voi
 
 void Server::_addOwnSocket(int sockfd) {
 	_clients.try_emplace(sockfd, sockfd);
+	registerHandler(_sock, EPOLLIN, [](int socket) { Handler::acceptClient(socket); });
 }
 
 std::string Server::getTime(void) const {

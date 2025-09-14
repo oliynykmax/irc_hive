@@ -6,6 +6,7 @@
 #include <string>
 #include <regex>
 
+
 class Server;
 extern Server *irc;
 

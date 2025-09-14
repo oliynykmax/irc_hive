@@ -10,8 +10,8 @@
 #include <unistd.h>
 #include <stdexcept>
 #include "Client.hpp"
-#include "Channel.hpp"
 #include "Handler.hpp"
+#include "Channel.hpp"
 #include <sys/epoll.h>
 #include <sys/types.h>
 #include <arpa/inet.h>
@@ -29,6 +29,7 @@ class Server {
 		std::time_t _startTime;
 		const int _fd;
 		const int _sock;
+		std::string::size_type _checker;
 		const int _port;
 		const int _max_events = 100;
 		std::string _password;

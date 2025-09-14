@@ -1,7 +1,4 @@
 #include "Channel.hpp"
-#include <stdexcept>
-#include <string>
-#include <sys/socket.h>
 
 Channel::Channel(std::string channel) : _startTime(time(NULL)), _name(channel) {
 }
@@ -42,8 +39,13 @@ const string Channel::getTime(void) const {
 	return std::to_string(_startTime);
 }
 
-void Channel::setLimit(size_t limit) {
-	_limit = limit;
+bool Channel::setLimit(string limit) {
+	try {
+		_limit = std::stoul(limit);
+		return true;
+	} catch (...) {
+		return false;
+	}
 }
 
 void Channel::setMode(string mode) {
@@ -185,7 +187,7 @@ string Channel::userList(void) const {
 	return ret;
 }
 
-string Channel::modeList(void) const {
+string Channel::modes(void) const {
 	string ret("+");
 
 	for (auto mode : _mode)
@@ -196,7 +198,7 @@ string Channel::modeList(void) const {
 	return ret;
 }
 
-void Channel::makeOperator(int fd, string uname) {
+bool Channel::makeOperator(int fd, string uname) {
 	int newOp = 0;
 
 	for (auto user : _users) {
@@ -206,10 +208,10 @@ void Channel::makeOperator(int fd, string uname) {
 		}
 	}
 	if (!newOp)
-		throw std::runtime_error("");
+		return false;
 	_users.erase(newOp);
 	_oper.emplace(newOp);
-	message(-1, irc->getClient(fd).getUser()->createPrefix() + " MODE " + _name + " +o " + uname);
+	return message(-1, irc->getClient(fd).getUser()->createPrefix() + " MODE " + _name + " +o " + uname);
 }
 
 void Channel::invite(int fd) {

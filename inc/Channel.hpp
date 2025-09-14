@@ -46,15 +46,15 @@ class Channel {
 		const string& getTopic(void) const;
 		const size_t& getLimit(void) const;
 		const string getTime(void) const;
-		void setLimit(size_t limit);
+		bool setLimit(string limit);
 		void setMode(string mode);
 		void unsetMode(string umode);
 		bool setTopic(int fd, string topic);
 		const string addUser(int fd, string passwd = "");
 		void removeUser(int fd, string msg = "", string cmd = "");
 		string userList(void) const;
-		string modeList(void) const;
-		void makeOperator(int fd, string user);
+		string modes(void) const;
+		bool makeOperator(int fd, string user);
 		bool kick(int op, int user);
 		void invite(int fd);
 		bool message(int fd, string name = "", string msg = "", string type = "");
