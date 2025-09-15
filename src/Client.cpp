@@ -1,30 +1,26 @@
 #include "Client.hpp"
 
-
-Client::Client(int fd) : _self(new User()), _fd(fd) {}
+Client::Client(int fd) : _self(std::make_unique<User>()), _fd(fd) {}
 
 Client::Client(const Client& other) :
 _IN(other._IN),
 _RDHUP(other._RDHUP),
 _HUP(other._HUP),
-_self(new User(*other._self)),
+_self(std::make_unique<User>(*other._self.get())),
 _fd(other._fd),
 _initialized(other._initialized){}
 
 Client& Client::operator=(const Client& other) {
 	if (this != &other) {
-		delete _self;
-		_self = new User(*other._self);
+		_self.reset(new User(*other._self.get()));
 	}
 	return *this;
 }
 
-Client::~Client() {
-	delete _self;
-}
+Client::~Client() = default;
 
 User* Client::getUser(void) {
-	return _self;
+	return _self.get();
 }
 
 void Client::setHandler(uint32_t eventType, std::function<void(int)> handler) {

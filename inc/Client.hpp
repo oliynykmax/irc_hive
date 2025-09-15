@@ -22,7 +22,7 @@ class Client {
 		std::function<void(int)> _IN	=	nullptr;
 		std::function<void(int)> _RDHUP	=  	nullptr;
 		std::function<void(int)> _HUP	= 	nullptr;
-		User* _self;
+		std::unique_ptr<User> _self;
 		bool _authenticated = false;
 		bool _registered = false;
 
