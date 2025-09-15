@@ -1,6 +1,6 @@
 #include "Channel.hpp"
 
-Channel::Channel(std::string channel) : _startTime(time(NULL)), _name(channel) {
+Channel::Channel(std::string channel) : _startTime(time(NULL)), _name(channel), _passwd(), _topic() {
 }
 
 bool Channel::isEmpty(void) const {
@@ -69,7 +69,7 @@ bool Channel::setTopic(int user, string topic) {
 		return false;
 	}
 	_topic = topic;
-	string response = ":" + irc->getClient(user).getUser()->getNick() + " TOPIC " + _name + " :" + topic + "\r\n";
+	string response = ":" + USER(user)->getNick() + " TOPIC " + _name + " :" + topic;
 	message(-1, response);
 	return true;
 }
@@ -82,30 +82,29 @@ bool Channel::checkUser(int user) {
 
 const string Channel::addUser(int user, string passwd) {
 	string ret;
-	const string nick = irc->getClient(user).getUser()->getNick();
+	const string nick = USER(user)->getNick();
 	if (not checkUser(user))
-		ret = "443 " + nick + " "
-		 + _name + " :You are already on the channel";
+		ret = E443;
 	else if (_mode.contains('l') && _users.size() + _oper.size() >= _limit)
-		ret = "471 " + nick + " " + _name + " :Cannot join channel (+l)";
+		ret = E471;
 	else if (_mode.contains('i'))
 		if (_mode.contains('k') && joinWithInvite(user, passwd))
 			;
 		else if (_mode.contains('k'))
-			ret = "475 " + nick + " " + _name + " :Cannot join channel (+k)";
+			ret = E475;
 		else
-			ret = "473 " + nick + " " + _name + " :Cannot join channel (+i)";
+			ret = E473;
 	else if (_mode.contains('k'))
 		if (joinWithPassword(user, passwd))
 			;
 		else
-			ret = "475 " + nick + " " + _name + " :Cannot join channel (+k)";
+			ret = E475;
 	else if (isEmpty()) {
 		_oper.emplace(user);
-		irc->getClient(user).getUser()->join(this);
+		USER(user)->join(this);
 	} else {
 		_users.emplace(user);
-		irc->getClient(user).getUser()->join(this);
+		USER(user)->join(this);
 	}
 	return ret;
 }
@@ -118,6 +117,7 @@ void Channel::removeUser(int fd, string msg, string cmd) {
 		_oper.erase(fd);
 		if  (_oper.empty()) {
 			if (_users.empty()) {
+					USER(fd)->exitChannel(_name);
 					irc->removeChannel(_name);
 					return ;
 			} else {
@@ -132,7 +132,7 @@ void Channel::removeUser(int fd, string msg, string cmd) {
 	} else {
 		return ;
 	}
-	irc->getClient(fd).getUser()->exitChannel(_name);
+	USER(fd)->exitChannel(_name);
 }
 
 bool Channel::joinWithPassword(int fd, string passwd) {
@@ -141,7 +141,7 @@ bool Channel::joinWithPassword(int fd, string passwd) {
 			_oper.emplace(fd);
 		else
 			_users.emplace(fd);
-		irc->getClient(fd).getUser()->join(this);
+		USER(fd)->join(this);
 		return true;
 	} else {
 		return false;
@@ -175,12 +175,12 @@ string Channel::userList(void) const {
 	string ret;
 
 	for (auto users : _users) {
-		ret += irc->getClient(users).getUser()->getNick();
+		ret += USER(users)->getNick();
 		ret += " ";
 	}
 	for (auto users : _oper) {
 		ret += '@';
-		ret += irc->getClient(users).getUser()->getNick();
+		ret += USER(users)->getNick();
 		ret += " ";
 	}
 	ret.erase(ret.end() - 1);
@@ -202,7 +202,7 @@ bool Channel::makeOperator(int fd, string uname) {
 	int newOp = 0;
 
 	for (auto user : _users) {
-		if (irc->getClient(user).getUser()->getNick() == uname) {
+		if (USER(user)->getNick() == uname) {
 			newOp = user;
 			break ;
 		}
@@ -211,7 +211,7 @@ bool Channel::makeOperator(int fd, string uname) {
 		return false;
 	_users.erase(newOp);
 	_oper.emplace(newOp);
-	return message(-1, irc->getClient(fd).getUser()->createPrefix() + " MODE " + _name + " +o " + uname);
+	return message(-1, PREFIX + " MODE " + _name + " +o " + uname);
 }
 
 void Channel::invite(int fd) {
@@ -221,7 +221,7 @@ void Channel::invite(int fd) {
 bool Channel::kick(int op, int user) {
 	if (_users.contains(user) && _oper.contains(op)) {
 		_users.erase(user);
-		irc->getClient(user).getUser()->exitChannel(_name);
+		USER(user)->exitChannel(_name);
 		return true;
 	} else {
 		return false;
@@ -234,7 +234,7 @@ bool Channel::message(int user, string msg, string type, string name) {
 	if (type.empty())
 		message = msg + "\r\n";
 	else if (name.empty())
-		message = ":" + irc->getClient(user).getUser()->getNick() + " " + type + " " + _name + " :" + msg + "\r\n";
+		message = ":" + USER(user)->getNick() + " " + type + " " + _name + " :" + msg + "\r\n";
 	else
 		message = msg + " " + type + " :" + name + "\r\n";
 

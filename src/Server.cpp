@@ -35,7 +35,13 @@ _password(passwd)
  	_addOwnSocket(_sock);
 }
 
-Server::~Server() { close(_fd); close(_sock); }
+Server::~Server() {
+	for(auto client : _clients) {
+		delete client.second.getDispatch();
+	}
+	close(_fd);
+ 	close(_sock);
+}
 
 bool Server::checkPassword(std::string password) const {
 	return _password == password;
@@ -46,7 +52,7 @@ int Server::getServerFd() const {
 }
 
 Channel& Server::addChannel(std::string name) {
-	_channels.try_emplace(name, Channel(name));
+	_channels.try_emplace(name, name);
 	return _channels.at(name);
 }
 
@@ -70,8 +76,10 @@ void Server::addClient(int fd) {
 }
 
 void Server::removeClient(const int fd) {
-	if(!_clients.empty())
+	if(not _clients.empty()) {
+		delete getClient(fd).getDispatch();
 		_clients.erase(fd);
+	}
 	close(fd);
 }
 

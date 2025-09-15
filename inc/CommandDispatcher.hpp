@@ -7,7 +7,6 @@
 #include "Message.hpp"
 
 class ICommand;
-class UnknownCommand;
 
 /**
  * @class	CommandDispatcher
@@ -25,7 +24,6 @@ class	CommandDispatcher
 
 	private:
 		std::unordered_map<std::string, std::unique_ptr<ICommand>> _handlers;
-		std::unique_ptr<UnknownCommand> _default;
 
 		void	_welcome(int fd);
 };

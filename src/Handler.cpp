@@ -7,7 +7,6 @@ void Handler::clientWrite(int fd) {
 	vector<char> buf(BUFSIZ);
 	queue<unique_ptr<Message>> msg_queue;
 	RecvParser	parser(msg_queue);
-	CommandDispatcher	dispatcher;
 
 	messageLen = recv(fd, &buf[0], buf.size(), 0);
 	if (messageLen == -1)
@@ -16,7 +15,7 @@ void Handler::clientWrite(int fd) {
 	while (!msg_queue.empty())
 	{
 		const unique_ptr<Message> &msg = msg_queue.front();
-		if (!dispatcher.dispatch(msg, fd))
+		if (!irc->getClient(fd).getDispatch()->dispatch(msg, fd))
 			return ;
 		msg_queue.pop();
 	}

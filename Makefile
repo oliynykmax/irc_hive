@@ -17,6 +17,9 @@ DEPS    := $(OBJS:.o=.d)
 
 all: $(NAME)
 
+debug: CXXFLAGS += -g2 -ggdb3
+debug: re
+
 $(NAME): $(OBJS)
 	echo "🔗 Linking $(NAME)..."
 	$(CXX) $(CXXFLAGS) $(OBJS) -o $@
@@ -43,4 +46,4 @@ re:
 
 -include $(DEPS)
 .SILENT:
-.PHONY: all clean fclean re
+.PHONY: all clean fclean re debug

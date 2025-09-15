@@ -1,29 +1,7 @@
 #include "Command.hpp"
 
-#define R341 "341 :Invitation send"
-#define E401 "401 :No such nick"
-#define E403 "403 :No such channel"
-#define E409 "409 :No origin specified"
-#define E411 "411 :No recipient given"
-#define E412 "412 :No text to send"
-#define E421 "421 :Unknown command"
-#define E422 "422 :You're not on that channel"
-#define E431 "431 :No nickname given"
-#define E441 "441 :They aren't on that channel"
-#define E442 "442 :You're not on that channel"
-#define E443 "443 :User already on channel"
-#define E461 "461 :Missing parameters"
-#define E472 "472 :Unknown mode"
-#define E481 "481 :Permission Denied- You're not an IRC operator"
-#define E482 "482 :You're not a channel operator"
-#define E502 "502 :Users don't match"
-#define HOST ":localhost "
-#define NICK irc->getClient(fd).getUser()->getNick()
-#define USER(X) irc->getClient(X).getUser()
-#define PREFIX irc->getClient(fd).getUser()->createPrefix()
-#define PARAM msg.params[0]
-#define PARAM1 msg.params[1]
-#define PARAM2 msg.params[2]
+
+
 
 static void debugLog(const Message &msg)
 {
@@ -49,13 +27,13 @@ void NickCommand::execute(const Message &msg, int fd)
 		return sendResponse(E431, fd);
 	const std::string &oldNick = NICK;
 	std::string	newNick = PARAM;
-	User* usr = irc->getClient(fd).getUser();
+	User* usr = USER(fd);
 	std::regex nickname_regex("^[A-Za-z][A-Za-z0-9-_]*");
-	if (newNick.size() < 1 || newNick.size() > 9 || !std::regex_match(newNick, nickname_regex))
-		return sendResponse("432 " + oldNick + " " + newNick + " :Erroneous nickname", fd);
+	if (newNick.size() < 1 || newNick.size() > 9 || not std::regex_match(newNick, nickname_regex))
+		return sendResponse(E432, fd);
 	for (auto client : irc->getClients())
 		if (client.second.getUser()->getNick() == newNick)
-			return sendResponse("433 * " + newNick + " :Nickname is already in use", fd);
+			return sendResponse(E433, fd);
 	sendResponse(PREFIX + " NICK :" + newNick, fd);
 	usr->setNick(fd, newNick);
 
@@ -65,11 +43,10 @@ void UserCommand::execute(const Message &msg, int fd)
 {
 	if (msg.params.size() < 4)
 		return sendResponse(E461, fd);
-	if (!irc->getClient(fd).getUser()->getUser().empty())
-		return sendResponse("462 " + NICK +
-				" : You may not reregister", fd);
-	irc->getClient(fd).getUser()->setUser(PARAM);
-	irc->getClient(fd).getUser()->setHost(PARAM1);
+	if (not USER(fd)->getUser().empty())
+		return sendResponse(E462, fd);
+	USER(fd)->setUser(PARAM);
+	USER(fd)->setHost(PARAM1);
 }
 
 void JoinCommand::execute(const Message &msg, int fd)
@@ -78,10 +55,9 @@ void JoinCommand::execute(const Message &msg, int fd)
 		return sendResponse(E461, fd);
 	else if (PARAM.empty())
 		return ;
-	std::string nick = NICK;
 	std::regex channel_regex("^[#][A-Za-z0-9-_]{1,50}*");
 	if (!std::regex_match(PARAM, channel_regex))
-		return sendResponse("403 " + nick + " " + PARAM + " :No such channel", fd);
+		return sendResponse(E403REV2, fd);
 	Channel &channel = irc->addChannel(PARAM);
 	std::string response;
 	if (msg.params.size() == 1)
@@ -92,12 +68,12 @@ void JoinCommand::execute(const Message &msg, int fd)
 		return sendResponse(response, fd);
 	const std::string &topic = channel.getTopic();
 	if (topic.empty())
-		sendResponse("331 " + nick + " " + PARAM + " :No topic is set", fd);
+		sendResponse(R331, fd);
 	else
-		sendResponse("332 " + nick + " " + PARAM + " :" + topic, fd);
+		sendResponse(R332, fd);
 	const std::string &names = channel.userList();
-	sendResponse("353 " + nick + " @ " + PARAM + " :" + names, fd);
-	sendResponse("366 " + nick + " " + PARAM + " :End of NAMES list", fd);
+	sendResponse(R353, fd);
+	sendResponse(R366, fd);
 	std::string prefix = PREFIX;
 	for (auto user : channel.getUsers())
 		sendResponse(prefix + " JOIN :" + PARAM, user);
@@ -112,8 +88,7 @@ void PartCommand::execute(const Message &msg, int fd)
 	Client &client = irc->getClient(fd);
 	std::regex channel_regex("^[#][A-Za-z0-9-_]{1,50}*");
 	if (!std::regex_match(PARAM, channel_regex))
-		return sendResponse("403 " + client.getUser()->getNick() +
-				" " + PARAM + " :No such channel", fd);
+		return sendResponse(E403REV2, fd);
 	Channel *ch = client.getUser()->getChannel(PARAM);
 	if (!ch)
 		return sendResponse(E422, fd);
@@ -132,7 +107,7 @@ void PrivmsgCommand::execute(const Message &msg, int fd)
 		return sendResponse(E412, fd);
 	if (PARAM[0] == '#')
 	{
-		Channel *ch = irc->getClient(fd).getUser()->getChannel(PARAM);
+		Channel *ch = USER(fd)->getChannel(PARAM);
 		if (not ch)
 			return sendResponse(E442, fd);
 		if (not ch->message(fd, PARAM1, "PRIVMSG"))
@@ -200,6 +175,7 @@ void InviteCommand::execute(const Message &msg, int fd)
 		return sendResponse(E443, fd);
 	Channel *ch = irc->findChannel(PARAM1);
 	if (ch)
+	{
 		if (not ch->getUsers().contains(fd) && not ch->getOperators().contains(fd))
 			return sendResponse(E442, fd);
 		else if (ch->getMode().contains('i') && not ch->getOperators().contains(fd))
@@ -209,10 +185,8 @@ void InviteCommand::execute(const Message &msg, int fd)
 			return sendResponse(E443, fd);
 		else
 			ch->invite(target->_fd);
-	else
-		return sendResponse(E403, fd);
-	std::string invitation = PREFIX;
-	invitation.append(" INVITE " + PARAM + " :" + PARAM1);
+	}
+	std::string invitation = PREFIX + " INVITE " + PARAM + " :" + PARAM1;
 	sendResponse(invitation, target->_fd);
 	sendResponse(R341, fd);
 }
@@ -228,11 +202,10 @@ void TopicCommand::execute(const Message &msg, int fd)
 		return sendResponse(E442, fd);
 	if (msg.params.size() < 2)
 	{
-		const std::string &nick = NICK;
 		const std::string &topic = ch->getTopic();
 		if (topic.empty())
-			return sendResponse("331 " + nick + " " + PARAM + " :No topic is set", fd);
-		return sendResponse("332 " + nick + " " + PARAM + " :" + topic, fd);
+			return sendResponse(R331, fd);
+		return sendResponse(R332, fd);
 	}
 	if (ch->getMode().contains('t') && not ch->getOperators().contains(fd))
 		return sendResponse(E482, fd);
@@ -248,8 +221,8 @@ void ModeCommand::execute(const Message &msg, int fd)
 		if (!ch)
 			return sendResponse(E442, fd);
 		if (msg.params.size() < 2) {
-			sendResponse(":localhost 324 " + NICK +	" " + PARAM + " " + ch->modes(), fd);
-			return sendResponse(":localhost 329 " + NICK + " " + PARAM + " " + ch->getTime(), fd);
+			sendResponse(R324, fd);
+			return sendResponse(R329, fd);
 		} else if (!ch->getOperators().contains(fd))
 			return sendResponse(E482, fd);
 		std::string input = PARAM1, enable, disable;
@@ -294,7 +267,7 @@ void ModeCommand::execute(const Message &msg, int fd)
 			return ;
 		ch->setMode(enable);
 		ch->unsetMode(disable);
-		ch->message(-1, ":localhost 324 " + NICK + " " + PARAM + " " + ch->modes());
+		ch->message(-1, R324);
 	};
 
 	auto user = [&]() {
