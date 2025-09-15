@@ -31,7 +31,7 @@ _password(passwd)
 		throw std::runtime_error("Server::Server: ERROR - Failed listen on port " + port);
 	}
 
-	_events.reserve(_max_events * sizeof(epoll_event));
+	_events.resize(_max_events);
  	_addOwnSocket(_sock);
 }
 
@@ -122,14 +122,14 @@ void Server::poll(int tout) {
 
 		for (uint32_t type : eventTypes) {
 			if (_clients.count(fd) == 0)
-				return ;
+				continue ;
 			if (_clients.at(fd).handler(type & event)) {
 				[[maybe_unused]]
 				auto fut = std::async(std::launch::async, _clients.at(fd).getHandler(type & event), fd);
 			}
 		}
 
-		if (event & (EPOLLRDHUP & EPOLLHUP))
+		if (event & (EPOLLRDHUP | EPOLLHUP))
 			removeClient(fd);
 	}
 }
