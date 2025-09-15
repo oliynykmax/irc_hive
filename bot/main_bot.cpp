@@ -1,339 +1,330 @@
+#include <algorithm>
 #include <arpa/inet.h>
 #include <cerrno>
 #include <csignal>
 #include <cstdlib>
 #include <cstring>
+#include <functional>
 #include <iostream>
 #include <netdb.h>
 #include <poll.h>
-#include <sstream>
-#include <stdexcept>
 #include <string>
 #include <sys/socket.h>
+#include <sys/types.h>
 #include <unistd.h>
-#include <fcntl.h>
+#include <unordered_map>
 #include <vector>
 
-/* Signal handling */
-volatile sig_atomic_t g_signal_received = 0;
-void signal_handler(int sig) { g_signal_received = sig; }
+static volatile std::sig_atomic_t g_stop = 0;
+static void handle_stop(int) { g_stop = 1; }
 
-/* Embedded minimal AI HTTP code (curl shell-out) */
-static const char AI_HOST[] = "api.deepseek.com";
-static const char AI_PATH[] = "/v1/chat/completions";
-static const char AI_KEY[] = "...";
+static std::string trim_crlf(std::string s) {
+  while (!s.empty() && (s.back() == '\r' || s.back() == '\n'))
+    s.pop_back();
+  return s;
+}
 
-static std::string jsonEscape(const std::string &in) {
-  std::string out;
-  out.reserve(in.size() + 16);
-  for (char c : in) {
-    switch (c) {
-    case '\\':
-      out += "\\\\";
-      break;
-    case '"':
-      out += "\"";
-      break;
-    case '\n':
-      out += "\\n";
-      break;
-    case '\r':
-      break;
-    case '\t':
-      out += "\\t";
-      break;
-    default:
-      out += c;
-      break;
+static std::vector<std::string> split(const std::string &s, char delim) {
+  std::vector<std::string> out;
+  std::string cur;
+  for (char c : s) {
+    if (c == delim) {
+      out.push_back(cur);
+      cur.clear();
+    } else {
+      cur.push_back(c);
     }
   }
+  out.push_back(cur);
   return out;
 }
 
-static std::string aiHttpPost(const std::string &payloadJsonEscapedForShell) {
-  std::ostringstream cmd;
-  cmd << "curl -sS -X POST https://" << AI_HOST << AI_PATH
-      << " -H 'Authorization: Bearer " << AI_KEY << "'"
-      << " -H 'Content-Type: application/json'"
-      << " -H 'Accept: application/json'"
-      << " --fail"
-      << " -d '" << payloadJsonEscapedForShell << "'";
-  FILE *pipe = popen(cmd.str().c_str(), "r");
-  if (!pipe) {
-    return "Error: cannot start curl";
-  }
-  std::string response;
-  char buf[4096];
-  while (fgets(buf, sizeof(buf), pipe)) {
-    response.append(buf);
-  }
-  int rc = pclose(pipe);
-  if (rc != 0) {
-    std::ostringstream err;
-    err << "Error: curl exit " << rc;
-    return err.str();
-  }
-  return response;
+static void usage(const char *prog) {
+  std::cerr << "Usage: " << prog << " [options]\n"
+            << "  -s HOST      IRC server (default: localhost)\n"
+            << "  -p PORT      IRC port (default: 6667)\n"
+            << "  -n NICK      Nickname (default: ircbot)\n"
+            << "  -c CHS       Comma-separated channels, e.g. \"#test,#bots\"\n"
+            << "  --pass PASS  Server password\n"
+            << "  --verbose    Verbose logging\n"
+            << "  -h           Help\n";
 }
 
-static std::string parseAI(const std::string &response) {
-  std::string extracted;
-  size_t searchStart = response.find("\"role\":\"assistant\"");
-  if (searchStart == std::string::npos)
-    searchStart = 0;
-  size_t keyPos = response.find("\"content\"", searchStart);
-  if (keyPos != std::string::npos) {
-    size_t colon = response.find(':', keyPos);
-    if (colon != std::string::npos) {
-      size_t firstQuote = response.find('"', colon);
-      if (firstQuote != std::string::npos) {
-        size_t i = firstQuote + 1;
-        while (i < response.size()) {
-          char c = response[i];
-          if (c == '\\' && i + 1 < response.size()) {
-            char n = response[i + 1];
-            if (n == 'n')
-              extracted.push_back('\n');
-            else if (n == 'r') { /* skip */
-            } else
-              extracted.push_back(n);
-            i += 2;
-            continue;
-          }
-          if (c == '"')
-            break;
-          extracted.push_back(c);
-          ++i;
-        }
+static void parse_args(int argc, char **argv, std::string &host,
+                       std::string &port, std::string &nick,
+                       std::vector<std::string> &channels, std::string &pass,
+                       bool &verbose) {
+  host = "localhost";
+  port = "6667";
+  nick = "ircbot";
+  pass.clear();
+  verbose = false;
+  channels.clear();
+  for (int i = 1; i < argc; ++i) {
+    std::string a = argv[i];
+    auto need = [&](std::string &out) {
+      if (i + 1 >= argc) {
+        usage(argv[0]);
+        std::exit(2);
       }
+      out = argv[++i];
+    };
+    if (a == "-h") {
+      usage(argv[0]);
+      std::exit(0);
+    } else if (a == "-s")
+      need(host);
+    else if (a == "-p")
+      need(port);
+    else if (a == "-n")
+      need(nick);
+    else if (a == "-c") {
+      std::string chs;
+      need(chs);
+      for (std::string c : split(chs, ','))
+        if (!c.empty())
+          channels.push_back(c);
+    } else if (a == "--pass")
+      need(pass);
+    else if (a == "--verbose")
+      verbose = true;
+    else {
+      std::cerr << "Unknown arg: " << a << "\n";
+      usage(argv[0]);
+      std::exit(2);
     }
   }
-  if (extracted.empty())
-    return response;
-  if (extracted.size() > 400) {
-    extracted.erase(400);
-  }
-  return extracted;
 }
-
-static std::string buildAIPayload(const std::string &userPrompt) {
-  static const std::string systemPrompt =
-      "You are a concise chatbot for IRC. Reply casually, sometimes lazy. "
-      "Never exceed 400 characters.";
-  std::string json = "{\"model\":\"deepseek-chat\","
-                     "\"messages\":["
-                     "{\"role\":\"system\",\"content\":\"" +
-                     jsonEscape(systemPrompt) +
-                     "\"},"
-                     "{\"role\":\"user\",\"content\":\"" +
-                     jsonEscape(userPrompt) +
-                     "\"}"
-                     "],"
-                     "\"temperature\":0.7}";
-  std::string shellEscaped;
-  shellEscaped.reserve(json.size() + 32);
-  for (char c : json) {
-    if (c == '\'') {
-      shellEscaped += "'\\''";
-    } else {
-      shellEscaped += c;
+static int connect_to(const std::string &host, const std::string &port) {
+  struct addrinfo hints;
+  std::memset(&hints, 0, sizeof(hints));
+  hints.ai_family = AF_UNSPEC;
+  hints.ai_socktype = SOCK_STREAM;
+  struct addrinfo *res = nullptr;
+  int rc = ::getaddrinfo(host.c_str(), port.c_str(), &hints, &res);
+  if (rc != 0) {
+    std::cerr << "getaddrinfo: " << gai_strerror(rc) << "\n";
+    return -1;
+  }
+  int fd = -1;
+  for (struct addrinfo *ai = res; ai; ai = ai->ai_next) {
+    int tmp = ::socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol);
+    if (tmp < 0)
+      continue;
+    if (::connect(tmp, ai->ai_addr, ai->ai_addrlen) == 0) {
+      fd = tmp;
+      break;
     }
+    ::close(tmp);
   }
-  return shellEscaped;
+  ::freeaddrinfo(res);
+  return fd;
 }
 
-static std::string callAI(const std::string &prompt) {
-  std::string payload = buildAIPayload(prompt);
-  std::string raw = aiHttpPost(payload);
-  return parseAI(raw);
-}
-
-static bool sendLine(int fd, const std::string &line) {
-  std::string wire = line + "\r\n";
-  size_t sent = 0;
-  while (sent < wire.size()) {
-    ssize_t n = send(fd, wire.data() + sent, wire.size() - sent, 0);
-    if (n <= 0)
+static bool send_line(int fd, const std::string &s, bool verbose) {
+  if (verbose)
+    std::cerr << ">> " << s << "\n";
+  std::string wire = s;
+  wire += "\r\n";
+  const char *p = wire.c_str();
+  size_t left = wire.size();
+  while (left > 0) {
+    ssize_t n = ::send(fd, p, left, MSG_NOSIGNAL);
+    if (n < 0) {
+      if (errno == EINTR)
+        continue;
+      std::cerr << "send failed: " << std::strerror(errno) << "\n";
       return false;
-    sent += (size_t)n;
+    }
+    left -= static_cast<size_t>(n);
+    p += n;
   }
   return true;
 }
 
-int main(int argc, char *argv[]) {
-  signal(SIGINT, signal_handler);
-  signal(SIGTERM, signal_handler);
+static bool send_privmsg(int fd, const std::string &target,
+                         const std::string &text, bool verbose) {
+  return send_line(fd, "PRIVMSG " + target + " :" + text, verbose);
+}
 
-  if (argc < 5) {
-    std::cerr << "Usage: " << argv[0]
-              << " <host> <port> <nick> <#channel> [password]" << std::endl;
-    return 1;
-  }
-  std::string host = argv[1];
-  std::string port = argv[2];
-  std::string nick = argv[3];
-  std::string channel = argv[4];
-  std::string password = (argc >= 6) ? argv[5] : "";
+static void join_channels(int fd, const std::vector<std::string> &channels,
+                          bool verbose) {
+  for (const auto &ch : channels)
+    if (!ch.empty())
+      send_line(fd, "JOIN " + ch, verbose);
+}
 
-  struct addrinfo hints{}, *res = nullptr;
-  hints.ai_socktype = SOCK_STREAM;
-  hints.ai_family = AF_UNSPEC;
-  if (getaddrinfo(host.c_str(), port.c_str(), &hints, &res) != 0 || !res) {
-    std::cerr << "DNS resolution failed" << std::endl;
-    return 1;
-  }
-  int sock = -1;
-  for (auto p = res; p; p = p->ai_next) {
-    sock = ::socket(p->ai_family, p->ai_socktype, p->ai_protocol);
-    if (sock < 0)
+int main(int argc, char **argv) {
+  std::signal(SIGINT, handle_stop);
+  std::signal(SIGTERM, handle_stop);
+  std::signal(SIGPIPE, SIG_IGN);
+
+  std::string host, port, nick, pass;
+  std::vector<std::string> channels;
+  bool verbose = false;
+  parse_args(argc, argv, host, port, nick, channels, pass, verbose);
+
+  const std::string base_nick = nick;
+  int nick_attempt = 0;
+  int backoff = 2, backoff_max = 30;
+
+  using Cmd = std::function<void(const std::string &, const std::string &)>;
+  std::unordered_map<std::string, Cmd> commands;
+
+  int sockfd = -1;
+  auto reply = [&](const std::string &target, const std::string &text) {
+    if (sockfd >= 0)
+      send_privmsg(sockfd, target, text, verbose);
+  };
+  commands["!ping"] = [&](const std::string &target, const std::string &args) {
+    (void)args;
+    reply(target, "pong!");
+  };
+
+  while (!g_stop) {
+    sockfd = connect_to(host, port);
+    if (sockfd < 0) {
+      if (verbose)
+        std::cerr << "[bot] connect failed, retry in " << backoff << "s\n";
+      for (int s = 0; s < backoff && !g_stop; ++s)
+        sleep(1);
+      backoff = std::min(backoff_max, backoff * 2);
       continue;
-    
-    // Make socket non-blocking for connect with timeout
-    int flags = fcntl(sock, F_GETFL, 0);
-    fcntl(sock, F_SETFL, flags | O_NONBLOCK);
-    
-    int connect_result = ::connect(sock, p->ai_addr, p->ai_addrlen);
-    if (connect_result == 0) {
-      // Connection succeeded immediately
-      break;
-    } else if (errno == EINPROGRESS) {
-      // Connection in progress, use poll to wait with timeout
-      struct pollfd pfd;
-      pfd.fd = sock;
-      pfd.events = POLLOUT;
-      
-      int poll_result = poll(&pfd, 1, 5000); // 5 second timeout
-      if (poll_result > 0 && (pfd.revents & POLLOUT)) {
-        // Connection completed
-        int error = 0;
-        socklen_t len = sizeof(error);
-        if (getsockopt(sock, SOL_SOCKET, SO_ERROR, &error, &len) == 0 && error == 0) {
-          break;
-        }
-      }
     }
-    
-    close(sock);
-    sock = -1;
-  }
-  freeaddrinfo(res);
-  if (sock < 0) {
-    std::cerr << "Connection failed" << std::endl;
-    return 1;
-  }
-  
-  // Set socket back to blocking mode
-  int flags = fcntl(sock, F_GETFL, 0);
-  fcntl(sock, F_SETFL, flags & ~O_NONBLOCK);
+    if (verbose)
+      std::cerr << "[bot] connected\n";
+    backoff = 2;
 
-  if (!password.empty())
-    sendLine(sock, "PASS " + password);
-  sendLine(sock, "NICK " + nick);
-  sendLine(sock, "USER " + nick + " 0 * :" + nick);
-  sendLine(sock, "JOIN " + channel);
+    if (!pass.empty())
+      send_line(sockfd, "PASS " + pass, verbose);
+    send_line(sockfd, "NICK " + nick, verbose);
+    send_line(sockfd, "USER " + nick + " 0 * :irc_hive bot", verbose);
 
-  std::string buffer;
-  buffer.reserve(8192);
+    bool joined = false;
+    std::string inbuf;
 
-  struct pollfd pfd;
-  pfd.fd = sock;
-  pfd.events = POLLIN;
-  bool shouldExit = false;
-
-  while (!shouldExit && g_signal_received == 0) {
-    int ret = poll(&pfd, 1, 1000); // 1s timeout for responsiveness
-    if (ret < 0) {
-      if (errno == EINTR) {
-        if (g_signal_received != 0)
-          break; // Signal received, exit loop
-        continue; // Interrupted by signal but no exit signal, loop again
-      }
-      perror("poll");
-      break;
-    }
-    if (ret == 0) {
-      continue; // Timeout, just loop again
-    }
-    if (pfd.revents & (POLLERR | POLLHUP | POLLNVAL)) {
-      std::cerr << "Connection error." << std::endl;
-      break;
-    }
-    if (pfd.revents & POLLIN) {
-      char temp[2048];
-      ssize_t n = recv(sock, temp, sizeof(temp), 0);
-      if (n <= 0) {
-        if (n < 0)
-          perror("recv");
-        else
-          std::cout << "Connection closed." << std::endl;
+    while (!g_stop) {
+      struct pollfd pfd{sockfd, POLLIN, 0};
+      int pr = ::poll(&pfd, 1, 10000);
+      if (pr < 0) {
+        if (errno == EINTR)
+          continue;
+        std::cerr << "poll error: " << std::strerror(errno) << "\n";
         break;
       }
-      buffer.append(temp, n);
-    }
-
-    size_t pos;
-    while (!shouldExit && (pos = buffer.find("\r\n")) != std::string::npos) {
-      std::string line = buffer.substr(0, pos);
-      buffer.erase(0, pos + 2);
-
-      if (line.rfind("PING", 0) == 0) {
-        sendLine(sock, "PONG " + line.substr(5));
+      if (pr == 0)
         continue;
+      if (pfd.revents & (POLLERR | POLLHUP | POLLNVAL)) {
+        if (verbose)
+          std::cerr << "[bot] socket closed\n";
+        break;
       }
+      if (pfd.revents & POLLIN) {
+        char buf[4096];
+        ssize_t n = ::recv(sockfd, buf, sizeof(buf), 0);
+        if (n <= 0) {
+          if (verbose)
+            std::cerr << "[bot] recv <= 0\n";
+          break;
+        }
+        inbuf.append(buf, buf + n);
 
-      size_t priv = line.find(" PRIVMSG ");
-      if (priv != std::string::npos) {
-        size_t msgStart = line.find(" :", priv);
-        if (msgStart != std::string::npos) {
-          std::string senderNick;
-          if (line.size() > 1) {
-            size_t excl = line.find('!');
-            if (excl != std::string::npos && excl > 1)
-              senderNick = line.substr(1, excl - 1);
+        for (;;) {
+          size_t pos = inbuf.find('\n');
+          if (pos == std::string::npos)
+            break;
+          std::string line = trim_crlf(inbuf.substr(0, pos + 1));
+          inbuf.erase(0, pos + 1);
+          if (line.empty())
+            continue;
+          if (verbose)
+            std::cerr << "<< " << line << "\n";
+
+          if (line.rfind("PING", 0) == 0) {
+            std::string token;
+            size_t colon = line.find(':');
+            if (colon != std::string::npos)
+              token = line.substr(colon + 1);
+            send_line(sockfd, "PONG :" + token, verbose);
+            continue;
           }
 
-          std::string target = line.substr(priv + 9, msgStart - (priv + 9));
-          std::string text = line.substr(msgStart + 2);
-          bool isOwn = (!senderNick.empty() && senderNick == nick);
+          std::string s = line;
+          std::string prefix, sender_nick;
+          if (!s.empty() && s[0] == ':') {
+            size_t sp = s.find(' ');
+            if (sp != std::string::npos) {
+              prefix = s.substr(1, sp - 1);
+              s.erase(0, sp + 1);
+              size_t excl = prefix.find('!');
+              sender_nick =
+                  (excl != std::string::npos) ? prefix.substr(0, excl) : prefix;
+            } else
+              s.erase(0, 1);
+          }
 
-          if ((target == channel && !isOwn) || (target == nick && !isOwn)) {
-            std::string prompt = text;
-            if (prompt.find(nick) != std::string::npos) {
-              size_t p;
-              while ((p = prompt.find(nick)) != std::string::npos) {
-                prompt.erase(p, nick.size());
+          std::string trailing;
+          size_t tpos = s.find(" :");
+          if (tpos != std::string::npos) {
+            trailing = s.substr(tpos + 2);
+            s.erase(tpos);
+          }
+
+          std::vector<std::string> parts = split(s, ' ');
+          if (parts.empty())
+            continue;
+          const std::string &cmd = parts[0];
+
+          if (cmd == "001" || cmd == "376" || cmd == "422") {
+            if (!joined && !channels.empty()) {
+              join_channels(sockfd, channels, verbose);
+              joined = true;
+            }
+            continue;
+          }
+          if (cmd == "433") {
+            ++nick_attempt;
+            nick = base_nick + "_" + std::to_string(nick_attempt);
+            if (verbose)
+              std::cerr << "[bot] nick in use, trying " << nick << "\n";
+            send_line(sockfd, "NICK " + nick, verbose);
+            continue;
+          }
+          if (cmd == "PRIVMSG" && parts.size() >= 2) {
+            const std::string &target = parts[1];
+            const std::string &text = trailing;
+            if (!text.empty() && text[0] == '!') {
+              size_t spc = text.find(' ');
+              std::string key =
+                  (spc == std::string::npos) ? text : text.substr(0, spc);
+              std::string args =
+                  (spc == std::string::npos) ? "" : text.substr(spc + 1);
+              auto it = commands.find(key);
+              if (it != commands.end()) {
+                std::string reply_target =
+                    (target == nick && !sender_nick.empty()) ? sender_nick
+                                                             : target;
+                it->second(reply_target, args);
               }
             }
-            while (!prompt.empty() && isspace((unsigned char)prompt.front()))
-              prompt.erase(prompt.begin());
-            while (!prompt.empty() && isspace((unsigned char)prompt.back()))
-              prompt.pop_back();
-
-            if (prompt == "!quit") {
-              std::string quitReplyTo = (target == nick) ? senderNick : channel;
-              sendLine(sock, "PRIVMSG " + quitReplyTo + " :Bye!");
-              shouldExit = true;
-              break;
-            }
-
-            std::string aiOut = callAI(prompt);
-            if (aiOut.size() > 400)
-              aiOut.erase(400);
-            std::stringstream reply;
-            std::string replyTo = (target == nick) ? senderNick : channel;
-            reply << "PRIVMSG " << replyTo << " :" << aiOut;
-            sendLine(sock, reply.str());
           }
         }
       }
     }
+
+    ::close(sockfd);
+    sockfd = -1;
+    if (g_stop)
+      break;
+
+    if (verbose)
+      std::cerr << "[bot] reconnecting in " << backoff << "s\n";
+    for (int s = 0; s < backoff && !g_stop; ++s)
+      sleep(1);
+    backoff = std::min(backoff_max, backoff * 2);
+    nick = base_nick;
+    nick_attempt = 0;
   }
 
-  if (g_signal_received != 0) {
-    std::cout << "\nCaught signal " << g_signal_received << ", exiting."
-              << std::endl;
-  }
-
-  close(sock);
   return 0;
 }
