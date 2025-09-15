@@ -21,12 +21,10 @@ Client& Client::operator=(const Client& other) {
 	return *this;
 }
 
-Client::~Client() {
-	delete _self;
-}
+Client::~Client() = default;
 
 User* Client::getUser(void) {
-	return _self;
+	return _self.get();
 }
 
 CommandDispatcher* Client::getDispatch(void) {
