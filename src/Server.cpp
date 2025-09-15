@@ -70,8 +70,16 @@ void Server::addClient(int fd) {
 }
 
 void Server::removeClient(const int fd) {
-	if(!_clients.empty())
-		_clients.erase(fd);
+	auto it = _clients.find(fd);
+	if (it != _clients.end()) {
+		for (auto &entry : _channels) {
+			Channel &ch = entry.second;
+			if (ch.getUsers().contains(fd) || ch.getOperators().contains(fd)) {
+				ch.removeUser(fd, "Client quit", "QUIT");
+			}
+		}
+		_clients.erase(it);
+	}
 	close(fd);
 }
 
