@@ -5,13 +5,13 @@
 
 static void debugLog(const Message &msg)
 {
-	std::cout << "[DEBUG] Received unsupported command " << msg.command << " with ";
+	std::cerr << "Received unsupported command " << msg.command << " with ";
 	if (msg.prefix)
-		std::cout << "prefix: " << *msg.prefix << ", ";
-	std::cout << "params:";
+		std::cerr << "prefix: " << *msg.prefix << ", ";
+	std::cerr << "params:";
 	for (auto param : msg.params)
-		std::cout << " " << param;
-	std::cout << std::endl;
+		std::cerr << " " << param;
+	std::cerr << std::endl;
 }
 
 static void	sendResponse(std::string message, int fd)

@@ -1,6 +1,6 @@
 #include "Channel.hpp"
 
-Channel::Channel(std::string channel) : _startTime(time(NULL)), _name(channel), _passwd(), _topic() {
+Channel::Channel(string channel) : _startTime(time(NULL)), _name(channel), _passwd(), _topic() {
 }
 
 bool Channel::isEmpty(void) const {
@@ -111,15 +111,15 @@ const string Channel::addUser(int user, string passwd) {
 
 void Channel::removeUser(int fd, string msg, string cmd) {
 	if (_users.contains(fd)) {
+		USER(fd)->exitChannel(_name);
 		_users.erase(fd);
 		message(fd, msg, cmd);
 	} else if (_oper.contains(fd)) {
+		USER(fd)->exitChannel(_name);
 		_oper.erase(fd);
 		if  (_oper.empty()) {
 			if (_users.empty()) {
-					USER(fd)->exitChannel(_name);
-					irc->removeChannel(_name);
-					return ;
+				irc->removeChannel(_name);
 			} else {
 				auto user = _users.begin();
 				_oper.emplace(*user);
@@ -132,7 +132,7 @@ void Channel::removeUser(int fd, string msg, string cmd) {
 	} else {
 		return ;
 	}
-	USER(fd)->exitChannel(_name);
+
 }
 
 bool Channel::joinWithPassword(int fd, string passwd) {
@@ -158,7 +158,7 @@ bool Channel::joinWithInvite(int fd, string passwd) {
 				_invite.erase(fd);
 				_users.emplace(fd);
 			}
-			irc->getClient(fd).getUser()->join(this);
+			USER(fd)->join(this);
 			return true;
 		} else {
 			if (joinWithPassword(fd, passwd))
@@ -234,7 +234,7 @@ bool Channel::message(int user, string msg, string type, string name) {
 	if (type.empty())
 		message = msg + "\r\n";
 	else if (name.empty())
-		message = ":" + USER(user)->getNick() + " " + type + " " + _name + " :" + msg + "\r\n";
+		message = MSG;
 	else
 		message = msg + " " + type + " :" + name + "\r\n";
 

@@ -4,6 +4,7 @@
 #define NICK irc->getClient(fd).getUser()->getNick()
 #define USER(X) irc->getClient(X).getUser()
 #define PREFIX irc->getClient(fd).getUser()->createPrefix()
+#define MSG ":" + USER(user)->getNick() + " " + type + " " + _name + " :" + msg + "\r\n"
 #define PARAM msg.params[0]
 #define PARAM1 msg.params[1]
 #define PARAM2 msg.params[2]
