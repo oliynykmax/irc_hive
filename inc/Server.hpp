@@ -23,9 +23,9 @@ constexpr static const std::array<uint32_t, 3> eventTypes{EPOLLIN, EPOLLHUP, EPO
 
 class Server {
 	private:
-		std::map<std::string, class Channel> _channels{};
-		std::unordered_map<int, class Client> _clients{};
-		std::vector<epoll_event> _events{};
+		std::map<std::string, class Channel> _channels;
+		std::unordered_map<int, class Client> _clients;
+		std::vector<epoll_event> _events;
 		std::time_t _startTime;
 		const int _fd;
 		const int _sock;

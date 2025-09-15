@@ -5,8 +5,10 @@
 #include <sys/epoll.h>
 #include <fcntl.h>
 #include <memory>
+#include "CommandDispatcher.hpp"
 #include "User.hpp"
 class User;
+class CommandDispatcher;
 /*
  * @class Client
  * @brief Handles events on files registered to epoll
@@ -25,6 +27,7 @@ class Client {
 		User* _self;
 		bool _authenticated = false;
 		bool _registered = false;
+		CommandDispatcher* _test;
 
 	public:
 		explicit Client(int fd);
@@ -37,6 +40,7 @@ class Client {
 		void setHandler(uint32_t eventType, std::function<void(int)> handler);
 		std::function<void(int)>& getHandler(uint32_t eventType);
 		User* getUser(void);
+		CommandDispatcher* getDispatch(void);
 		void authenticate(void);
 		bool isAuthenticated(void) const;
 		bool& accessRegistered(void);

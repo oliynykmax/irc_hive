@@ -1,6 +1,7 @@
 #pragma once
 #include "User.hpp"
 #include "Server.hpp"
+#include "macro.h"
 #include <set>
 #include <ctime>
 #include <cstddef>
