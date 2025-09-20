@@ -14,30 +14,10 @@
 #include <unistd.h>
 #include <unordered_map>
 #include <vector>
+#include "../inc/RecvParser.hpp"
 
 static volatile std::sig_atomic_t g_stop = 0;
 static void handle_stop(int) { g_stop = 1; }
-
-static std::string trim_crlf(std::string s) {
-  while (!s.empty() && (s.back() == '\r' || s.back() == '\n'))
-    s.pop_back();
-  return s;
-}
-
-static std::vector<std::string> split(const std::string &s, char delim) {
-  std::vector<std::string> out;
-  std::string cur;
-  for (char c : s) {
-    if (c == delim) {
-      out.push_back(cur);
-      cur.clear();
-    } else {
-      cur.push_back(c);
-    }
-  }
-  out.push_back(cur);
-  return out;
-}
 
 static void usage() {
   std::cerr << "Usage: ./ircbot [options]\n"
@@ -72,9 +52,18 @@ static void parse_args(int argc, char **argv, std::string &host,
     else if (a == "-c") {
       std::string chs;
       need(chs);
-      for (std::string c : split(chs, ','))
-        if (!c.empty())
-          channels.push_back(c);
+      size_t start = 0;
+      while (true) {
+        size_t pos = chs.find(',', start);
+        std::string token = (pos == std::string::npos)
+                              ? chs.substr(start)
+                              : chs.substr(start, pos - start);
+        if (!token.empty())
+          channels.push_back(token);
+        if (pos == std::string::npos)
+          break;
+        start = pos + 1;
+      }
     } else if (a == "--pass")
       need(pass);
     else {
@@ -141,6 +130,13 @@ static void join_channels(int fd, const std::vector<std::string> &channels) {
       send_line(fd, "JOIN " + ch);
 }
 
+static std::string extract_nick_from_prefix(const std::optional<std::string> &prefix) {
+  if (!prefix || prefix->empty())
+    return "";
+  size_t excl = prefix->find('!');
+  return (excl == std::string::npos) ? *prefix : prefix->substr(0, excl);
+}
+
 int main(int argc, char **argv) {
   std::signal(SIGINT, handle_stop);
   std::signal(SIGTERM, handle_stop);
@@ -185,7 +181,9 @@ int main(int argc, char **argv) {
     send_line(sockfd, "USER " + nick + " 0 * :irc_hive bot");
 
     bool joined = false;
-    std::string inbuf;
+
+    std::queue<std::unique_ptr<Message>> msg_queue;
+    RecvParser parser(msg_queue);
 
     while (!g_stop) {
       struct pollfd pfd{sockfd, POLLIN, 0};
@@ -209,85 +207,72 @@ int main(int argc, char **argv) {
           std::cerr << "[bot] recv <= 0\n";
           break;
         }
-        inbuf.append(buf, buf + n);
+        parser.feed(buf, static_cast<size_t>(n));
 
-        for (;;) {
-          size_t pos = inbuf.find('\n');
-          if (pos == std::string::npos)
-            break;
-          std::string line = trim_crlf(inbuf.substr(0, pos + 1));
-          inbuf.erase(0, pos + 1);
-          if (line.empty())
-            continue;
-          std::cerr << "<< " << line << "\n";
+        while (!msg_queue.empty()) {
+          std::unique_ptr<Message> &msg = msg_queue.front();
 
-          if (line.rfind("PING", 0) == 0) {
-            std::string token;
-            size_t colon = line.find(':');
-            if (colon != std::string::npos)
-              token = line.substr(colon + 1);
+          // Log reconstructed message
+          std::cerr << "<< ";
+          if (msg->prefix)
+            std::cerr << ":" << *msg->prefix << " ";
+          std::cerr << msg->command;
+          for (size_t i = 0; i < msg->params.size(); ++i) {
+            bool is_last = (i == msg->params.size() - 1);
+            if (is_last && msg->params[i].find(' ') != std::string::npos)
+              std::cerr << " :" << msg->params[i];
+            else
+              std::cerr << " " << msg->params[i];
+          }
+          std::cerr << "\n";
+
+            // PING
+          if (msg->command == "PING") {
+            std::string token = msg->params.empty() ? "" : msg->params[0];
             send_line(sockfd, "PONG :" + token);
+            msg_queue.pop();
             continue;
           }
 
-          std::string s = line;
-          std::string prefix, sender_nick;
-          if (!s.empty() && s[0] == ':') {
-            size_t sp = s.find(' ');
-            if (sp != std::string::npos) {
-              prefix = s.substr(1, sp - 1);
-              s.erase(0, sp + 1);
-              size_t excl = prefix.find('!');
-              sender_nick =
-                  (excl != std::string::npos) ? prefix.substr(0, excl) : prefix;
-            } else
-              s.erase(0, 1);
-          }
-
-          std::string trailing;
-          size_t tpos = s.find(" :");
-          if (tpos != std::string::npos) {
-            trailing = s.substr(tpos + 2);
-            s.erase(tpos);
-          }
-
-          std::vector<std::string> parts = split(s, ' ');
-          if (parts.empty())
-            continue;
-          const std::string &cmd = parts[0];
-
-          if (cmd == "001" || cmd == "376" || cmd == "422") {
+          // Welcome / end of MOTD / no MOTD
+          if (msg->command == "001" || msg->command == "376" || msg->command == "422") {
             if (!joined && !channels.empty()) {
               join_channels(sockfd, channels);
               joined = true;
             }
+            msg_queue.pop();
             continue;
           }
-          if (cmd == "433") {
+
+          // Nick in use
+          if (msg->command == "433") {
             ++nick_attempt;
             nick = base_nick + "_" + std::to_string(nick_attempt);
             std::cerr << "[bot] nick in use, trying " << nick << "\n";
             send_line(sockfd, "NICK " + nick);
+            msg_queue.pop();
             continue;
           }
-          if (cmd == "PRIVMSG" && parts.size() >= 2) {
-            const std::string &target = parts[1];
-            const std::string &text = trailing;
+
+          // PRIVMSG handling
+          if (msg->command == "PRIVMSG" && msg->params.size() >= 2) {
+            const std::string &target = msg->params[0];
+            const std::string &text = msg->params[1];
             if (!text.empty() && text[0] == '!') {
               size_t spc = text.find(' ');
-              std::string key =
-                  (spc == std::string::npos) ? text : text.substr(0, spc);
-              std::string args =
-                  (spc == std::string::npos) ? "" : text.substr(spc + 1);
+              std::string key  = (spc == std::string::npos) ? text : text.substr(0, spc);
+              std::string args = (spc == std::string::npos) ? ""   : text.substr(spc + 1);
               auto it = commands.find(key);
               if (it != commands.end()) {
+                std::string sender_nick = extract_nick_from_prefix(msg->prefix);
                 std::string reply_target =
-                    (target == nick && !sender_nick.empty()) ? sender_nick
-                                                             : target;
+                    (target == nick && !sender_nick.empty()) ? sender_nick : target;
                 it->second(reply_target, args);
               }
             }
           }
+
+          msg_queue.pop();
         }
       }
     }
