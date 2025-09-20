@@ -39,40 +39,31 @@ static std::vector<std::string> split(const std::string &s, char delim) {
   return out;
 }
 
-static void usage(const char *prog) {
-  std::cerr << "Usage: " << prog << " [options]\n"
+static void usage() {
+  std::cerr << "Usage: ./ircbot [options]\n"
             << "  -s HOST      IRC server (default: localhost)\n"
             << "  -p PORT      IRC port (default: 6667)\n"
             << "  -n NICK      Nickname (default: ircbot)\n"
             << "  -c CHS       Comma-separated channels, e.g. \"#test,#bots\"\n"
-            << "  --pass PASS  Server password\n"
-            << "  --verbose    Verbose logging\n"
-            << "  -h           Help\n";
+            << "  --pass PASS  Server password\n";
+  std::exit(2);
 }
 
 static void parse_args(int argc, char **argv, std::string &host,
                        std::string &port, std::string &nick,
-                       std::vector<std::string> &channels, std::string &pass,
-                       bool &verbose) {
+                       std::vector<std::string> &channels, std::string &pass) {
   host = "localhost";
   port = "6667";
   nick = "ircbot";
-  pass.clear();
-  verbose = false;
-  channels.clear();
   for (int i = 1; i < argc; ++i) {
     std::string a = argv[i];
     auto need = [&](std::string &out) {
       if (i + 1 >= argc) {
-        usage(argv[0]);
-        std::exit(2);
+        usage();
       }
       out = argv[++i];
     };
-    if (a == "-h") {
-      usage(argv[0]);
-      std::exit(0);
-    } else if (a == "-s")
+    if (a == "-s")
       need(host);
     else if (a == "-p")
       need(port);
@@ -86,15 +77,13 @@ static void parse_args(int argc, char **argv, std::string &host,
           channels.push_back(c);
     } else if (a == "--pass")
       need(pass);
-    else if (a == "--verbose")
-      verbose = true;
     else {
       std::cerr << "Unknown arg: " << a << "\n";
-      usage(argv[0]);
-      std::exit(2);
+      usage();
     }
   }
 }
+
 static int connect_to(const std::string &host, const std::string &port) {
   struct addrinfo hints;
   std::memset(&hints, 0, sizeof(hints));
@@ -121,9 +110,8 @@ static int connect_to(const std::string &host, const std::string &port) {
   return fd;
 }
 
-static bool send_line(int fd, const std::string &s, bool verbose) {
-  if (verbose)
-    std::cerr << ">> " << s << "\n";
+static bool send_line(int fd, const std::string &s) {
+  std::cerr << ">> " << s << "\n";
   std::string wire = s;
   wire += "\r\n";
   const char *p = wire.c_str();
@@ -143,15 +131,14 @@ static bool send_line(int fd, const std::string &s, bool verbose) {
 }
 
 static bool send_privmsg(int fd, const std::string &target,
-                         const std::string &text, bool verbose) {
-  return send_line(fd, "PRIVMSG " + target + " :" + text, verbose);
+                         const std::string &text) {
+  return send_line(fd, "PRIVMSG " + target + " :" + text);
 }
 
-static void join_channels(int fd, const std::vector<std::string> &channels,
-                          bool verbose) {
+static void join_channels(int fd, const std::vector<std::string> &channels) {
   for (const auto &ch : channels)
     if (!ch.empty())
-      send_line(fd, "JOIN " + ch, verbose);
+      send_line(fd, "JOIN " + ch);
 }
 
 int main(int argc, char **argv) {
@@ -161,8 +148,7 @@ int main(int argc, char **argv) {
 
   std::string host, port, nick, pass;
   std::vector<std::string> channels;
-  bool verbose = false;
-  parse_args(argc, argv, host, port, nick, channels, pass, verbose);
+  parse_args(argc, argv, host, port, nick, channels, pass);
 
   const std::string base_nick = nick;
   int nick_attempt = 0;
@@ -174,7 +160,7 @@ int main(int argc, char **argv) {
   int sockfd = -1;
   auto reply = [&](const std::string &target, const std::string &text) {
     if (sockfd >= 0)
-      send_privmsg(sockfd, target, text, verbose);
+      send_privmsg(sockfd, target, text);
   };
   commands["!ping"] = [&](const std::string &target, const std::string &args) {
     (void)args;
@@ -184,21 +170,19 @@ int main(int argc, char **argv) {
   while (!g_stop) {
     sockfd = connect_to(host, port);
     if (sockfd < 0) {
-      if (verbose)
-        std::cerr << "[bot] connect failed, retry in " << backoff << "s\n";
+      std::cerr << "[bot] connect failed, retry in " << backoff << "s\n";
       for (int s = 0; s < backoff && !g_stop; ++s)
         sleep(1);
       backoff = std::min(backoff_max, backoff * 2);
       continue;
     }
-    if (verbose)
-      std::cerr << "[bot] connected\n";
+    std::cerr << "[bot] connected\n";
     backoff = 2;
 
     if (!pass.empty())
-      send_line(sockfd, "PASS " + pass, verbose);
-    send_line(sockfd, "NICK " + nick, verbose);
-    send_line(sockfd, "USER " + nick + " 0 * :irc_hive bot", verbose);
+      send_line(sockfd, "PASS " + pass);
+    send_line(sockfd, "NICK " + nick);
+    send_line(sockfd, "USER " + nick + " 0 * :irc_hive bot");
 
     bool joined = false;
     std::string inbuf;
@@ -215,16 +199,14 @@ int main(int argc, char **argv) {
       if (pr == 0)
         continue;
       if (pfd.revents & (POLLERR | POLLHUP | POLLNVAL)) {
-        if (verbose)
-          std::cerr << "[bot] socket closed\n";
+        std::cerr << "[bot] socket closed\n";
         break;
       }
       if (pfd.revents & POLLIN) {
         char buf[4096];
         ssize_t n = ::recv(sockfd, buf, sizeof(buf), 0);
         if (n <= 0) {
-          if (verbose)
-            std::cerr << "[bot] recv <= 0\n";
+          std::cerr << "[bot] recv <= 0\n";
           break;
         }
         inbuf.append(buf, buf + n);
@@ -237,15 +219,14 @@ int main(int argc, char **argv) {
           inbuf.erase(0, pos + 1);
           if (line.empty())
             continue;
-          if (verbose)
-            std::cerr << "<< " << line << "\n";
+          std::cerr << "<< " << line << "\n";
 
           if (line.rfind("PING", 0) == 0) {
             std::string token;
             size_t colon = line.find(':');
             if (colon != std::string::npos)
               token = line.substr(colon + 1);
-            send_line(sockfd, "PONG :" + token, verbose);
+            send_line(sockfd, "PONG :" + token);
             continue;
           }
 
@@ -277,7 +258,7 @@ int main(int argc, char **argv) {
 
           if (cmd == "001" || cmd == "376" || cmd == "422") {
             if (!joined && !channels.empty()) {
-              join_channels(sockfd, channels, verbose);
+              join_channels(sockfd, channels);
               joined = true;
             }
             continue;
@@ -285,9 +266,8 @@ int main(int argc, char **argv) {
           if (cmd == "433") {
             ++nick_attempt;
             nick = base_nick + "_" + std::to_string(nick_attempt);
-            if (verbose)
-              std::cerr << "[bot] nick in use, trying " << nick << "\n";
-            send_line(sockfd, "NICK " + nick, verbose);
+            std::cerr << "[bot] nick in use, trying " << nick << "\n";
+            send_line(sockfd, "NICK " + nick);
             continue;
           }
           if (cmd == "PRIVMSG" && parts.size() >= 2) {
@@ -317,14 +297,12 @@ int main(int argc, char **argv) {
     if (g_stop)
       break;
 
-    if (verbose)
-      std::cerr << "[bot] reconnecting in " << backoff << "s\n";
+    std::cerr << "[bot] reconnecting in " << backoff << "s\n";
     for (int s = 0; s < backoff && !g_stop; ++s)
       sleep(1);
     backoff = std::min(backoff_max, backoff * 2);
     nick = base_nick;
     nick_attempt = 0;
   }
-
   return 0;
 }
