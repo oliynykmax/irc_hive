@@ -19,7 +19,7 @@
 static volatile std::sig_atomic_t g_stop = 0;
 static void handle_stop(int) { g_stop = 1; }
 
-static void usage() {
+static void fatal_usage() {
   std::cerr << "Usage: ./ircbot [options]\n"
             << "  -s HOST      IRC server (default: localhost)\n"
             << "  -p PORT      IRC port (default: 6667)\n"
@@ -39,7 +39,7 @@ static void parse_args(int argc, char **argv, std::string &host,
     std::string a = argv[i];
     auto need = [&](std::string &out) {
       if (i + 1 >= argc) {
-        usage();
+        fatal_usage();
       }
       out = argv[++i];
     };
@@ -68,7 +68,7 @@ static void parse_args(int argc, char **argv, std::string &host,
       need(pass);
     else {
       std::cerr << "Unknown arg: " << a << "\n";
-      usage();
+      fatal_usage();
     }
   }
 }
@@ -135,6 +135,21 @@ static std::string extract_nick_from_prefix(const std::optional<std::string> &pr
     return "";
   size_t excl = prefix->find('!');
   return (excl == std::string::npos) ? *prefix : prefix->substr(0, excl);
+}
+
+static void log_message(const Message &msg) {
+  std::cerr << "<< ";
+  if (msg.prefix)
+    std::cerr << ":" << *msg.prefix << " ";
+  std::cerr << msg.command;
+  for (size_t i = 0; i < msg.params.size(); ++i) {
+    bool is_last = (i == msg.params.size() - 1);
+    if (is_last && msg.params[i].find(' ') != std::string::npos)
+      std::cerr << " :" << msg.params[i];
+    else
+      std::cerr << " " << msg.params[i];
+  }
+  std::cerr << "\n";
 }
 
 int main(int argc, char **argv) {
@@ -212,19 +227,7 @@ int main(int argc, char **argv) {
         while (!msg_queue.empty()) {
           std::unique_ptr<Message> &msg = msg_queue.front();
 
-          // Log reconstructed message
-          std::cerr << "<< ";
-          if (msg->prefix)
-            std::cerr << ":" << *msg->prefix << " ";
-          std::cerr << msg->command;
-          for (size_t i = 0; i < msg->params.size(); ++i) {
-            bool is_last = (i == msg->params.size() - 1);
-            if (is_last && msg->params[i].find(' ') != std::string::npos)
-              std::cerr << " :" << msg->params[i];
-            else
-              std::cerr << " " << msg->params[i];
-          }
-          std::cerr << "\n";
+          log_message(*msg);
 
             // PING
           if (msg->command == "PING") {

@@ -16,9 +16,9 @@ SRCS	:= $(addprefix src/, $(SRC))
 OBJS    := $(SRCS:src/%.cpp=.build/%.o)
 DEPS    := $(OBJS:.o=.d)
 
-BOT_SRC := main_bot.cpp
-BOT_SRCS := $(addprefix bot/, $(BOT_SRC))
-BOT_OBJS := $(BOT_SRCS:bot/%.cpp=.build/bot_%.o)
+BOT_SRC := bot/MainBot.cpp
+BOT_SRCS := $(BOT_SRC) src/RecvParser.cpp
+BOT_OBJS := $(BOT_SRC:bot/%.cpp=.build/bot_%.o) .build/RecvParser.o
 
 all: $(NAME)
 
