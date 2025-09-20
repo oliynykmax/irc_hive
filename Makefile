@@ -1,7 +1,8 @@
 NAME    := ircserv
 BOT_NAME := ircbot
 CXX     := c++
-CXXFLAGS:= -Wall -Wextra -Werror -std=c++20 -Iinc
+CXXFLAGS:= -Wall -Wextra -Werror -std=c++20 -Iinc -g2 -ggdb3
+
 SRC    := \
 		main.cpp \
 		Server.cpp \
@@ -23,8 +24,10 @@ BOT_OBJS := $(BOT_SRC:bot/%.cpp=.build/bot_%.o) .build/RecvParser.o
 all: $(NAME)
 
 debug: CXXFLAGS += -g2 -ggdb3
-debug: re
+debug: fclean
+debug: all
 debug: bot
+
 bot: $(BOT_NAME)
 
 $(NAME): $(OBJS)
@@ -61,8 +64,4 @@ re:
 
 -include $(DEPS)
 .SILENT:
-<<<<<<< HEAD
-.PHONY: all clean fclean re debug
-=======
-.PHONY: all clean fclean re bot
->>>>>>> 5619078 (moved based on 102, code of bot is bad and outdated)
+.PHONY: all clean fclean re debug bot

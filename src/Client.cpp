@@ -24,7 +24,7 @@ Client& Client::operator=(const Client& other) {
 Client::~Client() = default;
 
 User* Client::getUser(void) {
-	return _self.get();
+	return _self;
 }
 
 CommandDispatcher* Client::getDispatch(void) {
