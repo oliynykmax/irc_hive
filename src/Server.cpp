@@ -156,7 +156,9 @@ void Server::_addOwnSocket(int sockfd) {
 }
 
 std::string Server::getTime(void) const {
-	return ctime(&_startTime);
+	string ret = ctime(&_startTime);
+	ret.pop_back();
+	return ret;
 }
 
 const std::unordered_map<int, class Client>& Server::getClients() const {
