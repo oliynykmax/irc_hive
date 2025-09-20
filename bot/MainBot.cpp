@@ -16,6 +16,20 @@
 #include <vector>
 #include "../inc/RecvParser.hpp"
 
+inline constexpr std::array<std::string_view, 9> HELP_LINES = {
+    "/part {message} - leave the channel, with a message",
+    "/kick [nick] {message} - kick the user out of the channel, with a message",
+    "/quit {message} - disconnect from the server, with a message",
+    "/mode [l/o/t/k/i] - sets the channel modes, i-invite mode, o-operator, t-topic, l-limit, k-key",
+    "/msg [nick] - send message to user",
+    "/topic {name} - sets the topic of the channel to {name}",
+    "/invite [nick] {#channel_name} - invites user to the channel",
+    "/join {#channel_name} - joins the channel",
+    "/nick [nick] - tries to change the nick"
+};
+
+
+
 static volatile std::sig_atomic_t g_stop = 0;
 static void handle_stop(int) { g_stop = 1; }
 
@@ -178,6 +192,13 @@ int main(int argc, char **argv) {
     reply(target, "pong!");
   };
 
+  commands["!help"] = [&](const std::string &target, const std::string &args) {
+    (void)args;
+    for (std::string_view line : HELP_LINES) {
+      reply(target, std::string(line));
+    }
+  };
+
   while (!g_stop) {
     sockfd = connect_to(host, port);
     if (sockfd < 0) {
@@ -193,7 +214,7 @@ int main(int argc, char **argv) {
     if (!pass.empty())
       send_line(sockfd, "PASS " + pass);
     send_line(sockfd, "NICK " + nick);
-    send_line(sockfd, "USER " + nick + " 0 * :irc_hive bot");
+    send_line(sockfd, "USER " + nick + " localhost * :irc_hive bot");
 
     bool joined = false;
 
