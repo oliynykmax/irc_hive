@@ -4,6 +4,7 @@
 #include <csignal>
 #include <cstdlib>
 #include <cstring>
+#include <fcntl.h>
 #include <functional>
 #include <iostream>
 #include <netdb.h>
@@ -74,9 +75,8 @@ static void parse_args(int argc, char **argv, std::string &host,
 }
 
 static int connect_to(const std::string &host, const std::string &port) {
-  struct addrinfo hints;
-  std::memset(&hints, 0, sizeof(hints));
-  hints.ai_family = AF_UNSPEC;
+  struct addrinfo hints = {};
+  hints.ai_family = AF_INET;
   hints.ai_socktype = SOCK_STREAM;
   struct addrinfo *res = nullptr;
   int rc = ::getaddrinfo(host.c_str(), port.c_str(), &hints, &res);
@@ -87,15 +87,34 @@ static int connect_to(const std::string &host, const std::string &port) {
   int fd = -1;
   for (struct addrinfo *ai = res; ai; ai = ai->ai_next) {
     int tmp = ::socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol);
-    if (tmp < 0)
-      continue;
-    if (::connect(tmp, ai->ai_addr, ai->ai_addrlen) == 0) {
+    if (tmp < 0) continue;
+    // Set non-blocking for timeout
+    int flags = ::fcntl(tmp, F_GETFL, 0);
+    ::fcntl(tmp, F_SETFL, flags | O_NONBLOCK);
+    int ret = ::connect(tmp, ai->ai_addr, ai->ai_addrlen);
+    if (ret == 0) {
       fd = tmp;
       break;
+    } else if (errno == EINPROGRESS) {
+      struct pollfd pfd = {tmp, POLLOUT, 0};
+      if (::poll(&pfd, 1, 5000) > 0) {
+        int err = 0;
+        socklen_t len = sizeof(err);
+        ::getsockopt(tmp, SOL_SOCKET, SO_ERROR, &err, &len);
+        if (err == 0) {
+          fd = tmp;
+          break;
+        }
+      }
     }
     ::close(tmp);
   }
   ::freeaddrinfo(res);
+  if (fd >= 0) {
+    // Restore blocking
+    int flags = ::fcntl(fd, F_GETFL, 0);
+    ::fcntl(fd, F_SETFL, flags & ~O_NONBLOCK);
+  }
   return fd;
 }
 
