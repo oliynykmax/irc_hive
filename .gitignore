@@ -5,3 +5,4 @@ ircbot
 compile_commands.json
 .cache
 debug.log
+*.o
