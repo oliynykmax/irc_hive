@@ -95,7 +95,7 @@ static void parse_args(int argc, char **argv, std::string &host,
 static int connect_to(const std::string &host, const std::string &port) {
   struct addrinfo hints;
   std::memset(&hints, 0, sizeof(hints));
-  hints.ai_family = AF_INET;      
+  hints.ai_family = AF_INET;
   hints.ai_socktype = SOCK_STREAM;
   struct addrinfo *res = nullptr;
   int rc = ::getaddrinfo(host.c_str(), port.c_str(), &hints, &res);
@@ -306,15 +306,17 @@ int main(int argc, char **argv) {
       if (pr == 0)
         continue;
       if (pfd.revents & (POLLERR | POLLHUP | POLLNVAL)) {
-        std::cerr << "[bot] socket closed\n";
+        std::cerr << "[bot] socket closed (treating as server shutdown, exiting)\n";
+        g_stop = 1;
         break;
       }
       if (pfd.revents & POLLIN) {
         char buf[4096];
         ssize_t n = ::recv(sockfd, buf, sizeof(buf), 0);
         if (n <= 0) {
-          std::cerr << "[bot] recv <= 0\n";
+          std::cerr << "[bot] recv <= 0 (treating as server shutdown, exiting)\n";
 		  ::close(sockfd);
+          g_stop = 1;
           break;
         }
         parser.feed(buf, static_cast<size_t>(n));
