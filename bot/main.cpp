@@ -192,7 +192,8 @@ static void log_message(const Message &msg) {
 static void send_quit(int fd, const std::string &reason) {
   if (fd < 0) return;
   send_line(fd, "QUIT :" + reason);
-  ::shutdown(fd, SHUT_WR);
+  ::close(fd);
+  /* ::shutdown(fd, SHUT_WR); */
 }
 
 int main(int argc, char **argv) {
@@ -313,6 +314,7 @@ int main(int argc, char **argv) {
         ssize_t n = ::recv(sockfd, buf, sizeof(buf), 0);
         if (n <= 0) {
           std::cerr << "[bot] recv <= 0\n";
+		  ::close(sockfd);
           break;
         }
         parser.feed(buf, static_cast<size_t>(n));
