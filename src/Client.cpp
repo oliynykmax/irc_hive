@@ -21,7 +21,9 @@ Client& Client::operator=(const Client& other) {
 	return *this;
 }
 
-Client::~Client() = default;
+Client::~Client() {
+	delete _self;
+}
 
 User* Client::getUser(void) {
 	return _self;
