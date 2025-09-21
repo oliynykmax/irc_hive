@@ -1,3 +1,4 @@
+#include "../inc/RecvParser.hpp"
 #include <algorithm>
 #include <arpa/inet.h>
 #include <cerrno>
@@ -15,7 +16,6 @@
 #include <unistd.h>
 #include <unordered_map>
 #include <vector>
-#include "../inc/RecvParser.hpp"
 
 static volatile std::sig_atomic_t g_stop = 0;
 static void handle_stop(int) { g_stop = 1; }
@@ -57,8 +57,8 @@ static void parse_args(int argc, char **argv, std::string &host,
       while (true) {
         size_t pos = chs.find(',', start);
         std::string token = (pos == std::string::npos)
-                              ? chs.substr(start)
-                              : chs.substr(start, pos - start);
+                                ? chs.substr(start)
+                                : chs.substr(start, pos - start);
         if (!token.empty())
           channels.push_back(token);
         if (pos == std::string::npos)
@@ -87,7 +87,8 @@ static int connect_to(const std::string &host, const std::string &port) {
   int fd = -1;
   for (struct addrinfo *ai = res; ai; ai = ai->ai_next) {
     int tmp = ::socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol);
-    if (tmp < 0) continue;
+    if (tmp < 0)
+      continue;
     // Set non-blocking for timeout
     int flags = ::fcntl(tmp, F_GETFL, 0);
     ::fcntl(tmp, F_SETFL, flags | O_NONBLOCK);
@@ -149,7 +150,8 @@ static void join_channels(int fd, const std::vector<std::string> &channels) {
       send_line(fd, "JOIN " + ch);
 }
 
-static std::string extract_nick_from_prefix(const std::optional<std::string> &prefix) {
+static std::string
+extract_nick_from_prefix(const std::optional<std::string> &prefix) {
   if (!prefix || prefix->empty())
     return "";
   size_t excl = prefix->find('!');
@@ -248,7 +250,7 @@ int main(int argc, char **argv) {
 
           log_message(*msg);
 
-            // PING
+          // PING
           if (msg->command == "PING") {
             std::string token = msg->params.empty() ? "" : msg->params[0];
             send_line(sockfd, "PONG :" + token);
@@ -257,7 +259,8 @@ int main(int argc, char **argv) {
           }
 
           // Welcome / end of MOTD / no MOTD
-          if (msg->command == "001" || msg->command == "376" || msg->command == "422") {
+          if (msg->command == "001" || msg->command == "376" ||
+              msg->command == "422") {
             if (!joined && !channels.empty()) {
               join_channels(sockfd, channels);
               joined = true;
@@ -282,13 +285,16 @@ int main(int argc, char **argv) {
             const std::string &text = msg->params[1];
             if (!text.empty() && text[0] == '!') {
               size_t spc = text.find(' ');
-              std::string key  = (spc == std::string::npos) ? text : text.substr(0, spc);
-              std::string args = (spc == std::string::npos) ? ""   : text.substr(spc + 1);
+              std::string key =
+                  (spc == std::string::npos) ? text : text.substr(0, spc);
+              std::string args =
+                  (spc == std::string::npos) ? "" : text.substr(spc + 1);
               auto it = commands.find(key);
               if (it != commands.end()) {
                 std::string sender_nick = extract_nick_from_prefix(msg->prefix);
                 std::string reply_target =
-                    (target == nick && !sender_nick.empty()) ? sender_nick : target;
+                    (target == nick && !sender_nick.empty()) ? sender_nick
+                                                             : target;
                 it->second(reply_target, args);
               }
             }
