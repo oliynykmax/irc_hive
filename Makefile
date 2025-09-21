@@ -1,7 +1,7 @@
 NAME    := ircserv
 BOT_NAME := ircbot
 CXX     := c++
-CXXFLAGS:= -Wall -Wextra -Werror -std=c++20 -Iinc -g2 -ggdb3
+CXXFLAGS:= -Wall -Wextra -Werror -std=c++20 -Iinc 
 
 SRC    := \
 		main.cpp \
