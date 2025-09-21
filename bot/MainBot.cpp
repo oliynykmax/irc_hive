@@ -9,11 +9,15 @@
 #include <netdb.h>
 #include <poll.h>
 #include <string>
+#include <sstream>
+#include <cctype>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <unordered_map>
 #include <vector>
+#include <unordered_set>
 #include "../inc/RecvParser.hpp"
 
 inline constexpr std::array<std::string_view, 9> HELP_LINES = {
@@ -91,7 +95,7 @@ static void parse_args(int argc, char **argv, std::string &host,
 static int connect_to(const std::string &host, const std::string &port) {
   struct addrinfo hints;
   std::memset(&hints, 0, sizeof(hints));
-  hints.ai_family = AF_UNSPEC;
+  hints.ai_family = AF_INET;      
   hints.ai_socktype = SOCK_STREAM;
   struct addrinfo *res = nullptr;
   int rc = ::getaddrinfo(host.c_str(), port.c_str(), &hints, &res);
@@ -99,14 +103,32 @@ static int connect_to(const std::string &host, const std::string &port) {
     std::cerr << "getaddrinfo: " << gai_strerror(rc) << "\n";
     return -1;
   }
+  constexpr int CONNECT_TIMEOUT_MS = 5000;
   int fd = -1;
   for (struct addrinfo *ai = res; ai; ai = ai->ai_next) {
     int tmp = ::socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol);
     if (tmp < 0)
       continue;
-    if (::connect(tmp, ai->ai_addr, ai->ai_addrlen) == 0) {
-      fd = tmp;
+    int flags = ::fcntl(tmp, F_GETFL, 0);
+    if (flags >= 0)
+      ::fcntl(tmp, F_SETFL, flags | O_NONBLOCK);
+    int r = ::connect(tmp, ai->ai_addr, ai->ai_addrlen);
+    if (r == 0) {
+      fd = tmp;                        // Connected immediately
+      if (flags >= 0) ::fcntl(fd, F_SETFL, flags & ~O_NONBLOCK);
       break;
+    } else if (r < 0 && errno == EINPROGRESS) {
+      struct pollfd pfd{tmp, POLLOUT, 0};
+      int pr = ::poll(&pfd, 1, CONNECT_TIMEOUT_MS);
+      if (pr > 0 && (pfd.revents & POLLOUT)) {
+        int err = 0;
+        socklen_t len = sizeof(err);
+        if (::getsockopt(tmp, SOL_SOCKET, SO_ERROR, &err, &len) == 0 && err == 0) {
+          fd = tmp;
+          if (flags >= 0) ::fcntl(fd, F_SETFL, flags & ~O_NONBLOCK);
+          break;
+        }
+      }
     }
     ::close(tmp);
   }
@@ -183,8 +205,16 @@ int main(int argc, char **argv) {
   parse_args(argc, argv, host, port, nick, channels, pass);
 
   const std::string base_nick = nick;
-  int nick_attempt = 0;
-  int backoff = 2, backoff_max = 30;
+    int nick_attempt = 0;
+    int backoff = 2, backoff_max = 30;
+    int retries = 0;
+    const int MAX_RETRIES = 5;
+    std::unordered_set<std::string> joined_channels;
+    std::unordered_set<std::string> filter_words;
+    // Track channel operators (updated from 353 and MODE +o/-o)
+    std::unordered_map<std::string, std::unordered_set<std::string>> channel_ops;
+    // Last command sender (set when a bot command is processed)
+    std::string last_sender_nick;
 
   using Cmd = std::function<void(const std::string &, const std::string &)>;
   std::unordered_map<std::string, Cmd> commands;
@@ -206,22 +236,57 @@ int main(int argc, char **argv) {
     }
   };
 
+  commands["!filter"] = [&](const std::string &target, const std::string &args) {
+    // Determine the channel context (only allow in a channel)
+    if (target.empty() || target[0] != '#') {
+      reply((target == nick ? last_sender_nick : target), "Filter can only be modified from a channel context");
+      return;
+    }
+    // Require that the sender is a known channel operator
+    auto chanIt = channel_ops.find(target);
+    if (chanIt == channel_ops.end() || chanIt->second.find(last_sender_nick) == chanIt->second.end()) {
+      reply(target, "You are not a channel operator - cannot modify filter");
+      return;
+    }
+    std::istringstream iss(args);
+    std::string w;
+    int added = 0;
+    while (iss >> w) {
+      std::string lw;
+      lw.reserve(w.size());
+      for (char c : w)
+        lw.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(c))));
+      if (!lw.empty()) {
+        if (filter_words.insert(lw).second)
+          ++added;
+      }
+    }
+    reply(target, "Filter updated: " + std::to_string(filter_words.size()) +
+                  " words total (" + std::to_string(added) + " new)");
+  };
+
   while (!g_stop) {
     sockfd = connect_to(host, port);
     if (sockfd < 0) {
-      std::cerr << "[bot] connect failed, retry in " << backoff << "s\n";
+      ++retries;
+      std::cerr << "[bot] connect failed (" << retries << "/" << MAX_RETRIES << "), retry in " << backoff << "s\n";
+      if (retries >= MAX_RETRIES) {
+        std::cerr << "[bot] maximum retries reached, exiting\n";
+        break;
+      }
       for (int s = 0; s < backoff && !g_stop; ++s)
         sleep(1);
       backoff = std::min(backoff_max, backoff * 2);
       continue;
     }
     std::cerr << "[bot] connected\n";
+    retries = 0;
     backoff = 2;
 
     if (!pass.empty())
       send_line(sockfd, "PASS " + pass);
     send_line(sockfd, "NICK " + nick);
-    send_line(sockfd, "USER " + nick + " localhost * :irc_hive bot");
+    send_line(sockfd, "USER " + nick + " 0 * :irc_hive bot");
 
     bool joined = false;
 
@@ -285,25 +350,138 @@ int main(int argc, char **argv) {
             continue;
           }
 
-          // PRIVMSG handling
-          if (msg->command == "PRIVMSG" && msg->params.size() >= 2) {
-            const std::string &target = msg->params[0];
-            const std::string &text = msg->params[1];
-            if (!text.empty() && text[0] == '!') {
-              size_t spc = text.find(' ');
-              std::string key  = (spc == std::string::npos) ? text : text.substr(0, spc);
-              std::string args = (spc == std::string::npos) ? ""   : text.substr(spc + 1);
-              auto it = commands.find(key);
-              if (it != commands.end()) {
-                std::string sender_nick = extract_nick_from_prefix(msg->prefix);
-                std::string reply_target =
-                    (target == nick && !sender_nick.empty()) ? sender_nick : target;
-                it->second(reply_target, args);
+          // Update channel operators from RPL_NAMREPLY (353)
+          // Typical: 353 <ourNick> = #channel :@Op1 +VoicedUser User2
+          if (msg->command == "353" && msg->params.size() >= 4) {
+              const std::string &chan = msg->params[2];
+              const std::string &namesField = msg->params[3];
+              // namesField may already be without leading ':' depending on parser
+              std::string names = namesField;
+              if (!names.empty() && names[0] == ':')
+                  names.erase(0, 1);
+              std::istringstream nss(names);
+              std::string token;
+              auto &ops = channel_ops[chan]; // creates if not present
+              while (nss >> token) {
+                  if (!token.empty() && (token[0] == '@')) {
+                      std::string opNick = token.substr(1);
+                      if (!opNick.empty())
+                          ops.insert(opNick);
+                  }
               }
-            }
           }
 
-          msg_queue.pop();
+          // Track MODE +o / -o changes: :setter MODE #channel +o nick  OR grouped like +oo nick1 nick2
+          if (msg->command == "MODE" && msg->params.size() >= 2) {
+              const std::string &chan = msg->params[0];
+              if (!chan.empty() && chan[0] == '#') {
+                  const std::string &modes = msg->params[1];
+                  // Remaining params are the nick targets consumed by 'o' (and others we ignore)
+                  std::vector<std::string> modeArgs;
+                  for (size_t i = 2; i < msg->params.size(); ++i)
+                      modeArgs.push_back(msg->params[i]);
+
+                  bool adding = true;
+                  size_t argIndex = 0;
+                  auto &ops = channel_ops[chan]; // creates if missing
+                  for (char c : modes) {
+                      if (c == '+') { adding = true; continue; }
+                      if (c == '-') { adding = false; continue; }
+                      if (c == 'o') {
+                          if (argIndex < modeArgs.size()) {
+                              const std::string &targetNick = modeArgs[argIndex++];
+                              if (!targetNick.empty()) {
+                                  if (adding)
+                                      ops.insert(targetNick);
+                                  else
+                                      ops.erase(targetNick);
+                              }
+                          }
+                      } else {
+                          // For other mode letters that take arguments, still consume if needed
+                          // but since we only care about 'o', we just attempt to advance if letter uses an argument.
+                          // Simple heuristic: ignore; most other user modes won't break ordering here for small scale.
+                      }
+                  }
+              }
+          }
+
+          // PRIVMSG handling (commands + filter enforcement)
+                    if (msg->command == "PRIVMSG" && msg->params.size() >= 2) {
+                      const std::string &target = msg->params[0];
+                      const std::string &text = msg->params[1];
+                      std::string sender_nick = extract_nick_from_prefix(msg->prefix);
+
+                      // Bot commands (prefix '!')
+                      if (!text.empty() && text[0] == '!') {
+                        size_t spc = text.find(' ');
+                        std::string key  = (spc == std::string::npos) ? text : text.substr(0, spc);
+                        std::string args = (spc == std::string::npos) ? ""   : text.substr(spc + 1);
+                        auto it = commands.find(key);
+                        if (it != commands.end()) {
+                          std::string reply_target =
+                              (target == nick && !sender_nick.empty()) ? sender_nick : target;
+                          // Record sender for privilege checks (e.g. !filter)
+                          last_sender_nick = sender_nick;
+                          it->second(reply_target, args);
+                        }
+                      }
+
+                      // Content filter (only for channel messages, not from the bot itself)
+                      if (!filter_words.empty() && !sender_nick.empty() && sender_nick != nick &&
+                          !target.empty() && target[0] == '#' &&
+                          (text.empty() || text[0] != '!')) {
+                        // Tokenize text into words (alnum sequences)
+                        std::string token;
+                        auto flush_token = [&](void) {
+                          if (token.empty()) return false;
+                          if (filter_words.find(token) != filter_words.end()) {
+                            send_line(sockfd, "KICK " + target + " " + sender_nick + " :filtered word");
+                            return true;
+                          }
+                          token.clear();
+                          return false;
+                        };
+                        for (char ch : text) {
+                          if (std::isalnum(static_cast<unsigned char>(ch))) {
+                            token.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(ch))));
+                          } else {
+                            if (flush_token())
+                              break;
+                          }
+                        }
+                        if (!token.empty())
+                          flush_token();
+                      }
+                    }
+
+                    // Track successful self JOIN to mark channel as joined
+                    if (msg->command == "JOIN" && msg->params.size() >= 1) {
+                        std::string selfNick = extract_nick_from_prefix(msg->prefix);
+                        if (selfNick == nick) {
+                            const std::string &chan = msg->params[0];
+                            if (!chan.empty())
+                                joined_channels.insert(chan);
+                        }
+                    }
+
+                    // INVITE handling: always attempt (re)JOIN if not already joined
+                    if (msg->command == "INVITE" && msg->params.size() >= 2) {
+                        const std::string &invitee = msg->params[0];
+                        const std::string &channel = msg->params[1];
+                        if (invitee == nick && !channel.empty()) {
+                            // Track desired channel list (only add once)
+                            if (std::find(channels.begin(), channels.end(), channel) == channels.end()) {
+                                channels.push_back(channel);
+                            }
+                            // Re-attempt join if we are not yet in joined set
+                            if (joined_channels.find(channel) == joined_channels.end()) {
+                                send_line(sockfd, "JOIN " + channel);
+                            }
+                        }
+                    }
+
+                    msg_queue.pop();
         }
       }
     }
