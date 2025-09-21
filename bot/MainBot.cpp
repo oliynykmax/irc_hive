@@ -31,7 +31,8 @@ inline constexpr std::array<std::string_view, 9> HELP_LINES = {
 
 
 static volatile std::sig_atomic_t g_stop = 0;
-static void handle_stop(int) { g_stop = 1; }
+static volatile std::sig_atomic_t g_userInitiated = 0;
+static void handle_stop(int) { g_stop = 1; g_userInitiated = 1; }
 
 static void fatal_usage() {
   std::cerr << "Usage: ./ircbot [options]\n"
@@ -164,6 +165,12 @@ static void log_message(const Message &msg) {
       std::cerr << " " << msg.params[i];
   }
   std::cerr << "\n";
+}
+
+static void send_quit(int fd, const std::string &reason) {
+  if (fd < 0) return;
+  send_line(fd, "QUIT :" + reason);
+  ::shutdown(fd, SHUT_WR);
 }
 
 int main(int argc, char **argv) {
@@ -301,6 +308,11 @@ int main(int argc, char **argv) {
       }
     }
 
+    if (g_stop && g_userInitiated) {
+      send_quit(sockfd, "Client exiting");
+      struct pollfd tmp{sockfd, POLLIN, 0};
+      poll(&tmp, 1, 100);
+    }
     ::close(sockfd);
     sockfd = -1;
     if (g_stop)
