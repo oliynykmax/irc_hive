@@ -1,16 +1,47 @@
 #include "Server.hpp"
 
-Server::Server(std::string passwd) :
+Server::Server(std::string port, std::string passwd) :
 _startTime(time(nullptr)),
 _fd(epoll_create1(0)),
+_sock(socket(AF_INET, SOCK_STREAM, 0)),
+_checker(0),
+_port(stoi(port, &_checker)),
 _password(passwd)
 {
 	if(_fd == -1)
 		throw std::runtime_error("Server::Server: ERROR - Failed to create epoll file");
+	else if (port[_checker])
+		throw std::runtime_error("Server::Server: ERROR - Bad port number " + port);
+	auto optval = 1;
+	setsockopt(_sock, SOL_SOCKET, SO_REUSEPORT, &optval, sizeof(optval));
+	struct sockaddr_in sa_bindy{};
+	sa_bindy.sin_family = AF_INET;
+	sa_bindy.sin_port = htons(_port);
+	sa_bindy.sin_addr.s_addr = htonl(INADDR_ANY);
+
+	if (bind(_sock, (struct sockaddr *)&sa_bindy, sizeof(sa_bindy))) {
+		close(_fd);
+		close(_sock);
+		throw std::runtime_error("Server::Server: ERROR - Binding failed to " + port);
+	}
+
+	if (listen(_sock, 10)) {
+		close(_fd);
+		close(_sock);
+		throw std::runtime_error("Server::Server: ERROR - Failed listen on port " + port);
+	}
+
 	_events.reserve(_max_events * sizeof(epoll_event));
+ 	_addOwnSocket(_sock);
 }
 
-Server::~Server() { close(_fd); }
+Server::~Server() {
+	for(auto client : _clients) {
+		delete client.second.getDispatch();
+	}
+	close(_fd);
+ 	close(_sock);
+}
 
 bool Server::checkPassword(std::string password) const {
 	return _password == password;
@@ -21,7 +52,7 @@ int Server::getServerFd() const {
 }
 
 Channel& Server::addChannel(std::string name) {
-	_channels.try_emplace(name, Channel(name));
+	_channels.try_emplace(name, name);
 	return _channels.at(name);
 }
 
@@ -45,8 +76,10 @@ void Server::addClient(int fd) {
 }
 
 void Server::removeClient(const int fd) {
-	if(!_clients.empty())
+	if(not _clients.empty()) {
+		delete getClient(fd).getDispatch();
 		_clients.erase(fd);
+	}
 	close(fd);
 }
 
@@ -117,12 +150,15 @@ void Server::registerHandler(const int fd, uint32_t eventType, std::function<voi
 	_reloadHandler(cli);
 }
 
-void Server::addOwnSocket(int sockfd) {
+void Server::_addOwnSocket(int sockfd) {
 	_clients.try_emplace(sockfd, sockfd);
+	registerHandler(_sock, EPOLLIN, [](int socket) { Handler::acceptClient(socket); });
 }
 
 std::string Server::getTime(void) const {
-	return ctime(&_startTime);
+	string ret = ctime(&_startTime);
+	ret.pop_back();
+	return ret;
 }
 
 const std::unordered_map<int, class Client>& Server::getClients() const {

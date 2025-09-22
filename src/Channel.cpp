@@ -1,9 +1,6 @@
 #include "Channel.hpp"
-#include <stdexcept>
-#include <string>
-#include <sys/socket.h>
 
-Channel::Channel(std::string channel) : _startTime(time(NULL)), _name(channel) {
+Channel::Channel(string channel) : _startTime(time(NULL)), _name(channel), _passwd(), _topic() {
 }
 
 bool Channel::isEmpty(void) const {
@@ -42,9 +39,13 @@ const string Channel::getTime(void) const {
 	return std::to_string(_startTime);
 }
 
-void Channel::setLimit(size_t limit) {
-	_limit = limit;
-
+bool Channel::setLimit(string limit) {
+	try {
+		_limit = std::stoul(limit);
+		return true;
+	} catch (...) {
+		return false;
+	}
 }
 
 void Channel::setMode(string mode) {
@@ -64,28 +65,12 @@ void Channel::unsetMode(string umode)  {
 }
 
 bool Channel::setTopic(int user, string topic) {
-	if(_mode.contains('t') && !_oper.contains(user)) {
+	if(_mode.contains('t') && not _oper.contains(user)) {
 		return false;
 	}
 	_topic = topic;
-	string message = ":" + irc->getClient(user).getUser()->getNick() + " TOPIC " + _name + " :" + topic + "\r\n";
-	auto bytes = send(user, message.data(), message.size(), 0);
-	if (bytes == -1)
-		return false;
-	for (auto users : _users) {
-		if (users == user)
-			continue;
-		auto bytes = send(users, message.data(), message.size(), 0);
-		if (bytes == -1)
-			return false;
-	}
-	for (auto users : _oper) {
-		if (users == user)
-			continue;
-		auto bytes = send(users, message.data(), message.size(), 0);
-		if (bytes == -1)
-			return false;
-	}
+	string response = ":" + USER(user)->getNick() + " TOPIC " + _name + " :" + topic;
+	message(-1, response);
 	return true;
 }
 
@@ -97,44 +82,44 @@ bool Channel::checkUser(int user) {
 
 const string Channel::addUser(int user, string passwd) {
 	string ret;
-	const string nick = irc->getClient(user).getUser()->getNick();
-	if (!checkUser(user))
-		ret = "443 " + nick + " "
-		 + _name + " :You are already on the channel";
+	const string nick = USER(user)->getNick();
+	if (not checkUser(user))
+		ret = E443;
 	else if (_mode.contains('l') && _users.size() + _oper.size() >= _limit)
-		ret = "471 " + nick + " " + _name + " :Cannot join channel (+l)";
+		ret = E471;
 	else if (_mode.contains('i'))
 		if (_mode.contains('k') && joinWithInvite(user, passwd))
 			;
 		else if (_mode.contains('k'))
-			ret = "475 " + nick + " " + _name + " :Cannot join channel (+k)";
+			ret = E475;
 		else
-			ret = "473 " + nick + " " + _name + " :Cannot join channel (+i)";
+			ret = E473;
 	else if (_mode.contains('k'))
 		if (joinWithPassword(user, passwd))
 			;
 		else
-			ret = "475 " + nick + " " + _name + " :Cannot join channel (+k)";
+			ret = E475;
 	else if (isEmpty()) {
 		_oper.emplace(user);
-		irc->getClient(user).getUser()->join(this);
+		USER(user)->join(this);
 	} else {
 		_users.emplace(user);
-		irc->getClient(user).getUser()->join(this);
+		USER(user)->join(this);
 	}
 	return ret;
 }
 
 void Channel::removeUser(int fd, string msg, string cmd) {
 	if (_users.contains(fd)) {
+		USER(fd)->exitChannel(_name);
 		_users.erase(fd);
 		message(fd, msg, cmd);
 	} else if (_oper.contains(fd)) {
+		USER(fd)->exitChannel(_name);
 		_oper.erase(fd);
 		if  (_oper.empty()) {
 			if (_users.empty()) {
-					irc->removeChannel(_name);
-					return ;
+				irc->removeChannel(_name);
 			} else {
 				auto user = _users.begin();
 				_oper.emplace(*user);
@@ -147,7 +132,7 @@ void Channel::removeUser(int fd, string msg, string cmd) {
 	} else {
 		return ;
 	}
-	irc->getClient(fd).getUser()->exitChannel(_name);
+
 }
 
 bool Channel::joinWithPassword(int fd, string passwd) {
@@ -156,7 +141,7 @@ bool Channel::joinWithPassword(int fd, string passwd) {
 			_oper.emplace(fd);
 		else
 			_users.emplace(fd);
-		irc->getClient(fd).getUser()->join(this);
+		USER(fd)->join(this);
 		return true;
 	} else {
 		return false;
@@ -173,7 +158,7 @@ bool Channel::joinWithInvite(int fd, string passwd) {
 				_invite.erase(fd);
 				_users.emplace(fd);
 			}
-			irc->getClient(fd).getUser()->join(this);
+			USER(fd)->join(this);
 			return true;
 		} else {
 			if (joinWithPassword(fd, passwd))
@@ -190,19 +175,19 @@ string Channel::userList(void) const {
 	string ret;
 
 	for (auto users : _users) {
-		ret += irc->getClient(users).getUser()->getNick();
+		ret += USER(users)->getNick();
 		ret += " ";
 	}
 	for (auto users : _oper) {
 		ret += '@';
-		ret += irc->getClient(users).getUser()->getNick();
+		ret += USER(users)->getNick();
 		ret += " ";
 	}
 	ret.erase(ret.end() - 1);
 	return ret;
 }
 
-string Channel::modeList(void) const {
+string Channel::modes(void) const {
 	string ret("+");
 
 	for (auto mode : _mode)
@@ -213,20 +198,20 @@ string Channel::modeList(void) const {
 	return ret;
 }
 
-void Channel::makeOperator(int fd, string uname) {
+bool Channel::makeOperator(int fd, string uname) {
 	int newOp = 0;
 
 	for (auto user : _users) {
-		if (irc->getClient(user).getUser()->getNick() == uname) {
+		if (USER(user)->getNick() == uname) {
 			newOp = user;
 			break ;
 		}
 	}
 	if (!newOp)
-		throw std::runtime_error("");
+		return false;
 	_users.erase(newOp);
 	_oper.emplace(newOp);
-	message(-1, irc->getClient(fd).getUser()->createPrefix() + " MODE " + _name + " +o " + uname);
+	return message(-1, PREFIX + " MODE " + _name + " +o " + uname);
 }
 
 void Channel::invite(int fd) {
@@ -236,19 +221,20 @@ void Channel::invite(int fd) {
 bool Channel::kick(int op, int user) {
 	if (_users.contains(user) && _oper.contains(op)) {
 		_users.erase(user);
-		irc->getClient(user).getUser()->exitChannel(_name);
+		USER(user)->exitChannel(_name);
 		return true;
 	} else {
 		return false;
 	}
 }
 
-bool Channel::message(int user, string msg, string type,  string name) {
+bool Channel::message(int user, string msg, string type, string name) {
 	string message;
+
 	if (type.empty())
 		message = msg + "\r\n";
 	else if (name.empty())
-		message = ":" + irc->getClient(user).getUser()->getNick() + " " + type + " " + _name + " :" + msg + "\r\n";
+		message = MSG;
 	else
 		message = msg + " " + type + " :" + name + "\r\n";
 

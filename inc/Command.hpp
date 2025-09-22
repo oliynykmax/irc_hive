@@ -5,7 +5,9 @@
 #include <iostream>
 #include <string>
 #include <regex>
+#include "macro.h"
 
+class Server;
 extern Server *irc;
 
 /**
