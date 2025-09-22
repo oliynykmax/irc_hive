@@ -1,13 +1,14 @@
 #include "Client.hpp"
 
 
-Client::Client(int fd) : _self(new User()), _fd(fd) {}
+Client::Client(int fd) : _self(new User()),  _test(new CommandDispatcher()), _fd(fd) {}
 
 Client::Client(const Client& other) :
 _IN(other._IN),
 _RDHUP(other._RDHUP),
 _HUP(other._HUP),
 _self(new User(*other._self)),
+_test(other._test),
 _fd(other._fd),
 _initialized(other._initialized){}
 
@@ -15,6 +16,7 @@ Client& Client::operator=(const Client& other) {
 	if (this != &other) {
 		delete _self;
 		_self = new User(*other._self);
+		_test = other._test;
 	}
 	return *this;
 }
@@ -25,6 +27,10 @@ Client::~Client() {
 
 User* Client::getUser(void) {
 	return _self;
+}
+
+CommandDispatcher* Client::getDispatch(void) {
+	return _test;
 }
 
 void Client::setHandler(uint32_t eventType, std::function<void(int)> handler) {

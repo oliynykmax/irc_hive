@@ -1,4 +1,5 @@
 #include "CommandDispatcher.hpp"
+#include <memory>
 
 /**
  * CommandDispatcher installs seperate handlers for each command at construction
@@ -20,6 +21,7 @@ CommandDispatcher::CommandDispatcher(void)
 	_handlers["WHO"] = std::make_unique<WhoCommand>();
 	_handlers["PING"] = std::make_unique<PingCommand>();
 	_handlers["PASS"] = std::make_unique<PassCommand>();
+	_handlers["UNKNOWN"] = std::make_unique<UnknownCommand>();
 }
 
 /**
@@ -46,13 +48,13 @@ bool	CommandDispatcher::dispatch(const std::unique_ptr<Message> &msg, int fd)
 			}
 			cmd->second->execute(*msg, fd);
 			if (msg->command != "QUIT" &&
-				!irc->getClient(fd).getUser()->getNick().empty() &&
-				!irc->getClient(fd).getUser()->getUser().empty() &&
-				!irc->getClient(fd).accessRegistered())
+				not irc->getClient(fd).getUser()->getNick().empty() &&
+				not irc->getClient(fd).getUser()->getUser().empty() &&
+				not irc->getClient(fd).accessRegistered())
 				_welcome(fd);
 		}
 		else
-			_default.execute(*msg, fd);
+			_handlers.find("UNKNOWN")->second->execute(*msg, fd);
 	}
 	catch (std::exception &e)
 	{

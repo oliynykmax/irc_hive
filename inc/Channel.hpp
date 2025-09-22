@@ -1,20 +1,20 @@
 #pragma once
 #include "User.hpp"
 #include "Server.hpp"
+#include "macro.h"
 #include <set>
 #include <ctime>
 #include <cstddef>
 #include <sys/types.h>
 #include <sys/socket.h>
 
-class Server;
-
 using std::set;
 using std::string;
 
+class Server;
 extern Server *irc;
-
 class User;
+
 
 /*
  * @class Channel
@@ -29,7 +29,7 @@ class User;
 class Channel {
 	private:
 		time_t _startTime;
-		string _name, _passwd = "", _topic = "";
+		string _name, _passwd, _topic;
 		size_t _limit;
 		set<int> _users, _oper, _invite;
 		set<char> _mode{'s'};
@@ -47,15 +47,15 @@ class Channel {
 		const string& getTopic(void) const;
 		const size_t& getLimit(void) const;
 		const string getTime(void) const;
-		void setLimit(size_t limit);
+		bool setLimit(string limit);
 		void setMode(string mode);
 		void unsetMode(string umode);
 		bool setTopic(int fd, string topic);
 		const string addUser(int fd, string passwd = "");
 		void removeUser(int fd, string msg = "", string cmd = "");
 		string userList(void) const;
-		string modeList(void) const;
-		void makeOperator(int fd, string user);
+		string modes(void) const;
+		bool makeOperator(int fd, string user);
 		bool kick(int op, int user);
 		void invite(int fd);
 		bool message(int fd, string name = "", string msg = "", string type = "");

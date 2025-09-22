@@ -18,7 +18,7 @@ class User {
 	public:
 		void join(Channel *chan);
 		void quit(int fd, string msg);
-		void setNick(string name);
+		void setNick(int filde, string name);
 		void setUser(string name);
 		void setHost(string host);
 		string getNick(void) const;

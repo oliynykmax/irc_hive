@@ -6,6 +6,8 @@
 #include "Command.hpp"
 #include "Message.hpp"
 
+class ICommand;
+
 /**
  * @class	CommandDispatcher
  * @brief	A class for executing commands received from parser
@@ -22,7 +24,6 @@ class	CommandDispatcher
 
 	private:
 		std::unordered_map<std::string, std::unique_ptr<ICommand>> _handlers;
-		UnknownCommand _default;
 
 		void	_welcome(int fd);
 };

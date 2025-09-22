@@ -1,11 +1,13 @@
 NAME    := ircserv
+BOT_NAME := ircbot
 CXX     := c++
-CXXFLAGS:= -Wall -Wextra -Werror -std=c++20 -Iinc
+CXXFLAGS:= -Wall -Wextra -Werror -std=c++20 -Iinc 
+
 SRC    := \
 		main.cpp \
-		User.cpp \
-		Channel.cpp \
 		Server.cpp \
+		Channel.cpp \
+		User.cpp \
 		RecvParser.cpp \
 		Client.cpp \
 		Command.cpp \
@@ -15,14 +17,33 @@ SRCS	:= $(addprefix src/, $(SRC))
 OBJS    := $(SRCS:src/%.cpp=.build/%.o)
 DEPS    := $(OBJS:.o=.d)
 
+BOT_SRC := bot/main.cpp
+BOT_SRCS := $(BOT_SRC) src/RecvParser.cpp
+BOT_OBJS := $(BOT_SRC:bot/%.cpp=.build/bot_%.o) .build/RecvParser.o
+
 all: $(NAME)
+
+debug: CXXFLAGS += -g2 -ggdb3
+debug: fclean
+debug: all
+debug: bot
+
+bot: $(BOT_NAME)
 
 $(NAME): $(OBJS)
 	echo "🔗 Linking $(NAME)..."
 	$(CXX) $(CXXFLAGS) $(OBJS) -o $@
 	echo "🎉 Build complete!"
 
+$(BOT_NAME): $(BOT_OBJS)
+	echo "🔗 Linking $(BOT_NAME)..."
+	$(CXX) $(CXXFLAGS) $(BOT_OBJS) -o $@
+	echo "🎉 Bot build complete!"
+
 .build/%.o: src/%.cpp | .build
+	@$(CXX) $(CXXFLAGS) -MMD -MP -c $< -o $@
+
+.build/bot_%.o: bot/%.cpp | .build
 	@$(CXX) $(CXXFLAGS) -MMD -MP -c $< -o $@
 
 .build:
@@ -34,7 +55,7 @@ clean:
 
 fclean: clean
 	echo "🗑️ Removing $(NAME)"
-	@rm -f $(NAME)
+	@rm -f $(NAME) $(BOT_NAME)
 
 re:
 	echo "🔄 Rebuilding..."
@@ -43,4 +64,4 @@ re:
 
 -include $(DEPS)
 .SILENT:
-.PHONY: all clean fclean re
+.PHONY: all clean fclean re debug bot
