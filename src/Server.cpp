@@ -31,8 +31,12 @@ _password(passwd)
 		throw std::runtime_error("Server::Server: ERROR - Failed listen on port " + port);
 	}
 
+	struct epoll_event ev{};
+	ev.data.fd = _sock;
+	ev.events = EPOLLIN;
+	epoll_ctl(this->_fd, EPOLL_CTL_ADD, _sock, &ev);
+
 	_events.reserve(_max_events * sizeof(epoll_event));
- 	_addOwnSocket(_sock);
 }
 
 Server::~Server() {
@@ -119,7 +123,10 @@ void Server::poll(int tout) {
 	for (int idx = 0; idx < nbrEvents; idx++) {
 		uint32_t event = _events[idx].events;
 	 	int fd = _events[idx].data.fd;
-
+		if (fd == _sock) {
+			Handler::acceptClient(_sock);
+			continue;
+		}
 		for (uint32_t type : eventTypes) {
 			if (_clients.count(fd) == 0)
 				return ;
@@ -148,11 +155,6 @@ void Server::registerHandler(const int fd, uint32_t eventType, std::function<voi
 	}
 
 	_reloadHandler(cli);
-}
-
-void Server::_addOwnSocket(int sockfd) {
-	_clients.try_emplace(sockfd, sockfd);
-	registerHandler(_sock, EPOLLIN, [](int socket) { Handler::acceptClient(socket); });
 }
 
 std::string Server::getTime(void) const {

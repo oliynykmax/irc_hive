@@ -34,7 +34,6 @@ class Server {
 		const int _max_events = 100;
 		std::string _password;
 		void _reloadHandler(Client &client) const;
-		void _addOwnSocket(int sockfd);
 	public:
 		Server(std::string port = "6667", std::string passwd = "");
 		virtual ~Server();
