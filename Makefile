@@ -1,15 +1,15 @@
 NAME    := ircserv
 BOT_NAME := ircbot
 CXX     := c++
-CXXFLAGS:= -Wall -Wextra -Werror -std=c++20 -Iinc 
+CXXFLAGS:= -Wall -Wextra -Werror -std=c++20 -Iinc
 
 SRC    := \
+		Client.cpp \
 		main.cpp \
 		Server.cpp \
 		Channel.cpp \
 		User.cpp \
 		RecvParser.cpp \
-		Client.cpp \
 		Command.cpp \
 		CommandDispatcher.cpp \
 		Handler.cpp

@@ -15,7 +15,7 @@ void Handler::clientWrite(int fd) {
 	while (!msg_queue.empty())
 	{
 		const unique_ptr<Message> &msg = msg_queue.front();
-		if (!irc->getClient(fd).getDispatch()->dispatch(msg, fd))
+		if (!irc->getClient(fd)->getDispatch()->dispatch(msg, fd))
 			return ;
 		msg_queue.pop();
 	}

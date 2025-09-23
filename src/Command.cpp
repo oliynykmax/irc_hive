@@ -27,15 +27,15 @@ void NickCommand::execute(const Message &msg, int fd)
 		return sendResponse(E431, fd);
 	const std::string &oldNick = NICK;
 	std::string	newNick = PARAM;
-	User* usr = USER(fd);
+	User& usr = USER(fd);
 	std::regex nickname_regex("^[A-Za-z][A-Za-z0-9-_]*");
 	if (newNick.size() < 1 || newNick.size() > 9 || not std::regex_match(newNick, nickname_regex))
 		return sendResponse(E432, fd);
 	for (auto client : irc->getClients())
-		if (client.second.getUser()->getNick() == newNick)
+		if (client.second->getUser().getNick() == newNick)
 			return sendResponse(E433, fd);
 	sendResponse(PREFIX + " NICK :" + newNick, fd);
-	usr->setNick(fd, newNick);
+	usr.setNick(fd, newNick);
 
 }
 
@@ -43,10 +43,10 @@ void UserCommand::execute(const Message &msg, int fd)
 {
 	if (msg.params.size() < 4)
 		return sendResponse(E461, fd);
-	if (not USER(fd)->getUser().empty())
+	if (not USER(fd).getUser().empty())
 		return sendResponse(E462, fd);
-	USER(fd)->setUser(PARAM);
-	USER(fd)->setHost(PARAM1);
+	USER(fd).setUser(PARAM);
+	USER(fd).setHost(PARAM1);
 }
 
 void JoinCommand::execute(const Message &msg, int fd)
@@ -85,18 +85,18 @@ void PartCommand::execute(const Message &msg, int fd)
 {
 	if (msg.params.size() < 1)
 		return sendResponse(E461, fd);
-	Client &client = irc->getClient(fd);
+	Client *client = irc->getClient(fd);
 	std::regex channel_regex("^[#][A-Za-z0-9-_]{1,50}*");
 	if (!std::regex_match(PARAM, channel_regex))
 		return sendResponse(E403REV2, fd);
-	Channel *ch = client.getUser()->getChannel(PARAM);
+	Channel *ch = client->getUser().getChannel(PARAM);
 	if (!ch)
 		return sendResponse(E422, fd);
 	std::string response = PARAM;
 	if (msg.params.size() > 1)
 		response.append(" :" + PARAM1);
 	ch->removeUser(fd, response, "PART");
-	sendResponse(client.getUser()->createPrefix() + " PART " + response, fd);
+	sendResponse(PREFIX + " PART " + response, fd);
 }
 
 void PrivmsgCommand::execute(const Message &msg, int fd)
@@ -107,7 +107,7 @@ void PrivmsgCommand::execute(const Message &msg, int fd)
 		return sendResponse(E412, fd);
 	if (PARAM[0] == '#')
 	{
-		Channel *ch = USER(fd)->getChannel(PARAM);
+		Channel *ch = USER(fd).getChannel(PARAM);
 		if (not ch)
 			return sendResponse(E442, fd);
 		if (not ch->message(fd, PARAM1, "PRIVMSG"))
@@ -116,8 +116,8 @@ void PrivmsgCommand::execute(const Message &msg, int fd)
 	else
 	{
 		for (auto client : irc->getClients())
-			if (client.second.getUser()->getNick() == PARAM)
-				return sendResponse(":" + NICK + " PRIVMSG " + PARAM + " :" + PARAM1, client.first);
+			if (client.second->getUser().getNick() == PARAM)
+				return sendResponse(PRIVMSG, client.first);
 		sendResponse(E401, fd);
 	}
 }
@@ -130,19 +130,19 @@ void KickCommand::execute(const Message &msg, int fd)
 		return sendResponse(E461, fd);
 	if (not irc->channelExists(PARAM))
 		return sendResponse(E403, fd);
-	Channel *ch = irc->getClient(fd).getUser()->getChannel(PARAM);
+	Channel *ch = irc->getClient(fd)->getUser().getChannel(PARAM);
 	if (not ch)
 		return sendResponse(E442, fd);
 	if (not ch->getOperators().contains(fd))
 		return sendResponse(E482, fd);
 	for (auto client : ch->getOperators())
-		if (USER(client)->getNick() == PARAM1)
+		if (USER(client).getNick() == PARAM1)
 			return sendResponse(E481, fd);
 	Client *target = nullptr;
 	for (auto client : ch->getUsers())
-		if (USER(client)->getNick() == PARAM1)
+		if (USER(client).getNick() == PARAM1)
 		{
-			target = &irc->getClient(client);
+			target = irc->getClient(client);
 			break ;
 		}
 	if (not target)
@@ -164,9 +164,9 @@ void InviteCommand::execute(const Message &msg, int fd)
 		return sendResponse(E461, fd);
 	Client *target = nullptr;
 	for (auto client : irc->getClients())
-		if (client.second.getUser()->getNick() == PARAM)
+		if (client.second->getUser().getNick() == PARAM)
 		{
-			target = &(client.second);
+			target = client.second.get();
 			break ;
 		}
 	if (not target)
@@ -197,7 +197,7 @@ void TopicCommand::execute(const Message &msg, int fd)
 		return sendResponse(E461, fd);
 	if (not irc->channelExists(PARAM))
 		return sendResponse(E403, fd);
-	Channel *ch = irc->getClient(fd).getUser()->getChannel(PARAM);
+	Channel *ch = irc->getClient(fd)->getUser().getChannel(PARAM);
 	if (not ch)
 		return sendResponse(E442, fd);
 	if (msg.params.size() < 2)
@@ -217,7 +217,7 @@ constexpr std::string supported = "itkol", required = "klo";
 void ModeCommand::execute(const Message &msg, int fd)
 {
 	auto channel = [&]() {
-		Channel *ch = irc->getClient(fd).getUser()->getChannel(PARAM);
+		Channel *ch = irc->getClient(fd)->getUser().getChannel(PARAM);
 		if (!ch)
 			return sendResponse(E442, fd);
 		if (msg.params.size() < 2) {
@@ -259,7 +259,7 @@ void ModeCommand::execute(const Message &msg, int fd)
 				*ch = backup;
 				return ;
 			} else if (c == 'o' && not ch->makeOperator(fd, msg.params[index++])) {
-				sendResponse("441 " + NICK + " " + PARAM + " :They aren't on that channel", fd);
+				sendResponse(E441, fd);
 				*ch = backup;
 				return ;
 			}
@@ -284,52 +284,48 @@ void ModeCommand::execute(const Message &msg, int fd)
 void QuitCommand::execute(const Message &msg, int fd)
 {
 	if (!msg.params.empty())
-		USER(fd)->quit(fd, PARAM);
+		USER(fd).quit(fd, PARAM);
 	else
-		USER(fd)->quit(fd, "Client quit");
+		USER(fd).quit(fd, "Client quit");
 }
 
 void CapCommand::execute(const Message &msg, int fd)
 {
 	if (msg.params.empty())
-		return sendResponse("461 CAP :Not enough parameters", fd);
+		return sendResponse(CAP461, fd);
 	if (PARAM == "LS")
-		return sendResponse(":localhost CAP * LS :", fd);
+		return sendResponse(CAP, fd);
 	else if (PARAM == "END")
 		return ;
 	else
-		return sendResponse("410 CAP :Unsupported subcommand", fd);
+		return sendResponse(CAP410, fd);
 }
 
 void WhoisCommand::execute(const Message &msg, int fd)
 {
 	(void)msg;
-	std::string nick = NICK;
-	sendResponse("318 " + nick + " :End of WHOIS list", fd);
+	sendResponse(R318, fd);
 }
 
 void WhoCommand::execute(const Message &msg, int fd)
 {
 	if (msg.params.empty())
 		sendResponse(E461, fd);
-	Channel *ch = irc->getClient(fd).getUser()->getChannel(PARAM);
+	Channel *ch = irc->getClient(fd)->getUser().getChannel(PARAM);
 	if (not ch)
 		return sendResponse(E442, fd);
 	const std::string &nick = NICK;
 	for (auto id : ch->getUsers())
 	{
-		const User *user = USER(id);
-		sendResponse("352 " + PARAM + " " + user->getUser() + " " +
-				user->getHost() + " localhost " + user->getNick() + " H", fd);
+		const User& user = USER(id);
+		sendResponse(R352, fd);
 	}
 	for (auto id : ch->getOperators())
 	{
-		const User *user = USER(id);
-		sendResponse("352 " + nick + " " + PARAM + " "
-			+ user->getUser() + " " + user->getHost() +
-				" localhost " + user->getNick() + " H @", fd);
+		const User& user = USER(id);
+		sendResponse(R352 + " @", fd);
 	}
-	sendResponse("315 " + nick + " :End of /WHO list", fd);
+	sendResponse(R315, fd);
 }
 
 void PingCommand::execute(const Message &msg, int fd)
@@ -345,8 +341,8 @@ void PassCommand::execute(const Message &msg, int fd)
 	if (irc->checkPassword())
 		return ;
 	else if (!msg.params.empty() && irc->checkPassword(PARAM))
-		return irc->getClient(fd).authenticate();
-	sendResponse("464 " + NICK + " :Incorrect password", fd);
+		return irc->getClient(fd)->authenticate();
+	sendResponse(E464, fd);
 	irc->removeClient(fd);
 }
 
