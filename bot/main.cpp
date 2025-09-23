@@ -469,6 +469,22 @@ int main(int argc, char **argv) {
                         }
                     }
 
+                     if (msg->command == "QUIT") {
+                         std::string quitter = extract_nick_from_prefix(msg->prefix);
+                         for (auto &pair : channel_ops) {
+                             pair.second.erase(quitter);
+                         }
+                     }
+
+                     if (msg->command == "PART" && msg->params.size() >= 1) {
+                         std::string parter = extract_nick_from_prefix(msg->prefix);
+                         const std::string &chan = msg->params[0];
+                         auto it = channel_ops.find(chan);
+                         if (it != channel_ops.end()) {
+                             it->second.erase(parter);
+                         }
+                     }
+
                     // INVITE handling: always attempt (re)JOIN if not already joined
                     if (msg->command == "INVITE" && msg->params.size() >= 2) {
                         const std::string &invitee = msg->params[0];
