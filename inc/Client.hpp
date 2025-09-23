@@ -10,6 +10,7 @@
 #include "RecvParser.hpp"
 
 class User;
+
 class CommandDispatcher;
 /*
  * @class Client
@@ -32,6 +33,7 @@ class Client {
 		CommandDispatcher* _dispatch;
 		std::queue<std::unique_ptr<Message>> _msg_queue;
 		RecvParser	_parser;
+
 	public:
 		explicit Client(int fd);
 		~Client();
