@@ -1,4 +1,5 @@
 #pragma once
+#include <queue>
 #include <functional>
 #include <cstdint>
 #include <stdexcept>
@@ -7,6 +8,8 @@
 #include <memory>
 #include "CommandDispatcher.hpp"
 #include "User.hpp"
+#include "RecvParser.hpp"
+
 class User;
 class CommandDispatcher;
 /*
@@ -28,7 +31,8 @@ class Client {
 		bool _authenticated = false;
 		bool _registered = false;
 		CommandDispatcher* _test;
-
+		std::queue<std::unique_ptr<Message>> _msg_queue;
+		RecvParser	_parser;
 	public:
 		explicit Client(int fd);
 		~Client();
@@ -41,6 +45,7 @@ class Client {
 		std::function<void(int)>& getHandler(uint32_t eventType);
 		User* getUser(void);
 		CommandDispatcher* getDispatch(void);
+		RecvParser& getParser(void);
 		void authenticate(void);
 		bool isAuthenticated(void) const;
 		bool& accessRegistered(void);

@@ -34,8 +34,8 @@ bool	CommandDispatcher::dispatch(const std::unique_ptr<Message> &msg, int fd)
 	{
 		if (auto cmd = _handlers.find(msg->command); cmd != _handlers.end())
 		{
-			if (!irc->checkPassword() &&
-				!irc->getClient(fd).isAuthenticated() &&
+			if (not irc->checkPassword() &&
+				not irc->getClient(fd).isAuthenticated() &&
 				msg->command != "PASS" &&
 				msg->command != "CAP")
 			{
@@ -46,6 +46,8 @@ bool	CommandDispatcher::dispatch(const std::unique_ptr<Message> &msg, int fd)
 				irc->removeClient(fd);
 				return false;
 			}
+			if (msg->command == "QUIT")
+				return cmd->second->execute(*msg, fd), false;
 			cmd->second->execute(*msg, fd);
 			if (msg->command != "QUIT" &&
 				not irc->getClient(fd).getUser()->getNick().empty() &&
