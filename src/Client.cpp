@@ -1,6 +1,6 @@
 #include "Client.hpp"
 
-Client::Client(int fd) : _self(User()),  _dispatch(new CommandDispatcher()), _fd(fd) {}
+Client::Client(int fd) : _self(User()),  _dispatch(new CommandDispatcher()), _parser(RecvParser(_msg_queue)), _fd(fd) {}
 
 Client::~Client() {
 	delete _dispatch;
@@ -12,6 +12,10 @@ User& Client::getUser(void) {
 
 CommandDispatcher* Client::getDispatch(void) {
 	return _dispatch;
+}
+
+RecvParser& Client::getParser(void) {
+	return _parser;
 }
 
 void Client::setHandler(uint32_t eventType, std::function<void(int)> handler) {

@@ -3,6 +3,11 @@
 RecvParser::RecvParser(std::queue<std::unique_ptr<Message>> &msg_queue)
 	: _output(msg_queue){}
 
+std::queue<std::unique_ptr<Message>> &RecvParser::getQueue(void)
+{
+	return _output;
+}
+
 /**
  *	Feed the recv() buffer into std::string buffer
  *	@param	read_buf	The buffer to read
