@@ -31,7 +31,7 @@ _password(passwd)
 		throw std::runtime_error("Server::Server: ERROR - Failed listen on port " + port);
 	}
 
-	_events.reserve(_max_events * sizeof(epoll_event));
+	_events.resize(_max_events);
  	_addOwnSocket(_sock);
 }
 
