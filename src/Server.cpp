@@ -40,9 +40,6 @@ _password(passwd)
 }
 
 Server::~Server() {
-	for(auto client : _clients) {
-		delete client.second.getDispatch();
-	}
 	close(_fd);
  	close(_sock);
 }
@@ -76,12 +73,11 @@ Channel* Server::findChannel(std::string name) {
 }
 
 void Server::addClient(int fd) {
-	_clients.try_emplace(fd, fd);
+	_clients.try_emplace(fd, std::make_shared<Client>(fd));
 }
 
 void Server::removeClient(const int fd) {
 	if(not _clients.empty()) {
-		delete getClient(fd).getDispatch();
 		_clients.erase(fd);
 	}
 	close(fd);
@@ -130,9 +126,9 @@ void Server::poll(int tout) {
 		for (uint32_t type : eventTypes) {
 			if (_clients.count(fd) == 0)
 				return ;
-			if (_clients.at(fd).handler(type & event)) {
+			if (_clients.at(fd)->handler(type & event)) {
 				[[maybe_unused]]
-				auto fut = std::async(std::launch::async, _clients.at(fd).getHandler(type & event), fd);
+				auto fut = std::async(std::launch::async, _clients.at(fd)->getHandler(type & event), fd);
 			}
 		}
 
@@ -146,15 +142,15 @@ void Server::registerHandler(const int fd, uint32_t eventType, std::function<voi
 		throw std::runtime_error("Server::registerHandler: Error - no such file descriptor");
 
 
-	Client &cli = _clients.at(fd);
+	Client *cli = _clients.at(fd).get();
 
 	for (uint32_t eventT: eventTypes) {
 		if (eventT & eventType) {
-			cli.setHandler(eventType, handler);
+			cli->setHandler(eventType, handler);
 		}
 	}
 
-	_reloadHandler(cli);
+	_reloadHandler(*cli);
 }
 
 std::string Server::getTime(void) const {
@@ -163,13 +159,13 @@ std::string Server::getTime(void) const {
 	return ret;
 }
 
-const std::unordered_map<int, class Client>& Server::getClients() const {
+const std::unordered_map<int, std::shared_ptr<Client>>& Server::getClients() const {
 	return (_clients);
 }
 
-Client& Server::getClient(int fd) {
+Client* Server::getClient(int fd) {
 	if (_clients.count(fd) == 0)
 		throw std::runtime_error("Server::getClient: Error - no such file descriptor");
 
-	return (_clients.at(fd));
+	return (_clients.at(fd).get());
 }

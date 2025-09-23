@@ -5,6 +5,7 @@
 #include <vector>
 #include <string>
 #include <future>
+#include <memory>
 #include <cstdint>
 #include <fcntl.h>
 #include <unistd.h>
@@ -21,10 +22,12 @@
 
 constexpr static const std::array<uint32_t, 3> eventTypes{EPOLLIN, EPOLLHUP, EPOLLRDHUP};
 
+class Client;
+
 class Server {
 	private:
 		std::map<std::string, class Channel> _channels;
-		std::unordered_map<int, class Client> _clients;
+		std::unordered_map<int, std::shared_ptr<Client>> _clients;
 		std::vector<epoll_event> _events;
 		std::time_t _startTime;
 		const int _fd;
@@ -62,8 +65,8 @@ class Server {
 		*/
 		bool checkPassword(std::string password = "") const;
 		void poll(int tout = -1);
-		const std::unordered_map<int, class Client>& getClients() const;
-		Client& getClient(int fd);
+		const std::unordered_map<int, std::shared_ptr<Client>>& getClients() const;
+		Client* getClient(int fd);
 		int getServerFd() const;
 
 };

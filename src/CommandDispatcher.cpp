@@ -35,12 +35,12 @@ bool	CommandDispatcher::dispatch(const std::unique_ptr<Message> &msg, int fd)
 		if (auto cmd = _handlers.find(msg->command); cmd != _handlers.end())
 		{
 			if (!irc->checkPassword() &&
-				!irc->getClient(fd).isAuthenticated() &&
+				!irc->getClient(fd)->isAuthenticated() &&
 				msg->command != "PASS" &&
 				msg->command != "CAP")
 			{
 				std::string response("464 ");
-				response.append(irc->getClient(fd).getUser()->getNick());
+				response.append(irc->getClient(fd)->getUser().getNick());
 				response.append(" :Password incorrect\r\n");
 				send(fd, response.c_str(), response.size(), 0);
 				irc->removeClient(fd);
@@ -48,9 +48,9 @@ bool	CommandDispatcher::dispatch(const std::unique_ptr<Message> &msg, int fd)
 			}
 			cmd->second->execute(*msg, fd);
 			if (msg->command != "QUIT" &&
-				not irc->getClient(fd).getUser()->getNick().empty() &&
-				not irc->getClient(fd).getUser()->getUser().empty() &&
-				not irc->getClient(fd).accessRegistered())
+				not irc->getClient(fd)->getUser().getNick().empty() &&
+				not irc->getClient(fd)->getUser().getUser().empty() &&
+				not irc->getClient(fd)->accessRegistered())
 				_welcome(fd);
 		}
 		else
@@ -65,16 +65,16 @@ bool	CommandDispatcher::dispatch(const std::unique_ptr<Message> &msg, int fd)
 
 void	CommandDispatcher::_welcome(int fd)
 {
-	irc->getClient(fd).accessRegistered() = true;
-	std::string nick = irc->getClient(fd).getUser()->getNick();
+	irc->getClient(fd)->accessRegistered() = true;
+	std::string nick = irc->getClient(fd)->getUser().getNick();
 	std::string response = "001 " + nick + " :Welcome to Hive network\r\n";
 	send(fd, response.c_str(), response.size(), 0);
 	response = "002 " + nick + " :Your hostname is " +
-		irc->getClient(fd).getUser()->getHost() + "\r\n";
+		irc->getClient(fd)->getUser().getHost() + "\r\n";
 	send(fd, response.c_str(), response.size(), 0);
 	response = "003 " + nick + " :This server was started " + irc->getTime() + "\r\n";
 	send(fd, response.c_str(), response.size(), 0);
 	response = "004 " + nick + " :Your username is " +
-		irc->getClient(fd).getUser()->getUser() + "\r\n";
+		irc->getClient(fd)->getUser().getUser() + "\r\n";
 	send(fd, response.c_str(), response.size(), 0);
 }

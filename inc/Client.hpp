@@ -5,9 +5,8 @@
 #include <sys/epoll.h>
 #include <fcntl.h>
 #include <memory>
-#include "CommandDispatcher.hpp"
 #include "User.hpp"
-class User;
+
 class CommandDispatcher;
 /*
  * @class Client
@@ -24,24 +23,24 @@ class Client {
 		std::function<void(int)> _IN	=	nullptr;
 		std::function<void(int)> _RDHUP	=  	nullptr;
 		std::function<void(int)> _HUP	= 	nullptr;
-		User* _self;
+		User _self;
 		bool _authenticated = false;
 		bool _registered = false;
-		CommandDispatcher* _test;
+		CommandDispatcher* _dispatch;
 
 	public:
 		explicit Client(int fd);
 		~Client();
-		Client(const Client&);
-		Client& operator=(const Client&);
 		const int _fd;
 		bool _initialized = false;
 		bool handler(uint32_t eventType) const;
 		void setHandler(uint32_t eventType, std::function<void(int)> handler);
 		std::function<void(int)>& getHandler(uint32_t eventType);
-		User* getUser(void);
+		User& getUser(void);
 		CommandDispatcher* getDispatch(void);
 		void authenticate(void);
 		bool isAuthenticated(void) const;
 		bool& accessRegistered(void);
 };
+
+#include "CommandDispatcher.hpp"
