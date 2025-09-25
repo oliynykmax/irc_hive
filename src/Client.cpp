@@ -56,7 +56,7 @@ std::function<void(int)>& Client::getHandler(uint32_t eventType) {
 		case EPOLLHUP:
 			return _HUP;
 		default:
-			throw std::runtime_error("Client::getHandler: Error; invalid eventType");
+			throw std::runtime_error("Client::getHandler: Error: invalid eventType");
 	}
 }
 

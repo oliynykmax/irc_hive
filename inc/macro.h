@@ -4,11 +4,15 @@
 #define NICK irc->getClient(fd)->getUser().getNick()
 #define USER(X) irc->getClient(X)->getUser()
 #define PREFIX irc->getClient(fd)->getUser().createPrefix()
-#define MSG ":" + USER(user).getNick() + " " + type + " " + _name + " :" + msg + "\r\n"
+#define MSG ":" + USER(user).getNick() + " " + type \
++ " " + _name + " :" + msg + "\r\n"
 #define PARAM msg.params[0]
 #define PARAM1 msg.params[1]
 #define PARAM2 msg.params[2]
 #define PRIVMSG ":" + NICK + " PRIVMSG " + PARAM + " :" + PARAM1
+#define PONG "PONG localhost :" + PARAM
+#define INVITE PREFIX + " INVITE " + PARAM + " :" + PARAM1
+#define KICK PREFIX + " KICK " + PARAM + " " + PARAM1
 #define CAP ":localhost CAP * LS :"
 #define CAP410 "410 CAP :Unsupported subcommand"
 #define CAP461 "461 CAP :Not enough parameters"
@@ -19,7 +23,8 @@
 #define R331 "331 " + NICK + " " + PARAM + " :No topic is set"
 #define R332 "332 " + NICK + " " + PARAM + " :" + topic
 #define R341 "341 " + NICK + " " + PARAM + " " + PARAM1 + " :Invitation send "
-#define R352 "352 " + PARAM + " " + user.getUser() + " " + user.getHost() + " localhost " + user.getNick() + " H"
+#define R352 "352 " + PARAM + " " + user.getUser() + " "\
++ user.getHost() + " localhost " + user.getNick() + " H"
 #define R353 "353 " + NICK + " @ " + PARAM + " :" + names
 #define R366 "366 " + NICK + " " + PARAM + " :End of NAMES list"
 #define E401 "401 :No such nick"
