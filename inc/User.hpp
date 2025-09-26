@@ -1,6 +1,5 @@
 #pragma once
 
-#include "Channel.hpp"
 #include <string>
 #include <vector>
 
@@ -28,3 +27,5 @@ class User {
 		Channel* getChannel(string needle);
 		void exitChannel(string needle);
 };
+
+#include "Channel.hpp"

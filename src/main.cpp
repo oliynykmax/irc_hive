@@ -1,5 +1,13 @@
 #include "Server.hpp"
 #include "Handler.hpp"
+#include "Client.hpp"
+#include "Channel.hpp"
+#include "Command.hpp"
+#include "CommandDispatcher.hpp"
+#include "RecvParser.hpp"
+#include "macro.h"
+#include "Message.hpp"
+#include "User.hpp"
 #include <iostream>
 #include <stdexcept>
 #include <csignal>
