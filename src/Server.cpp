@@ -31,14 +31,15 @@ _password(passwd)
 		throw std::runtime_error("Server::Server: ERROR - Failed listen on port " + port);
 	}
 
-	_events.resize(_max_events);
- 	_addOwnSocket(_sock);
+	struct epoll_event ev{};
+	ev.data.fd = _sock;
+	ev.events = EPOLLIN;
+	epoll_ctl(this->_fd, EPOLL_CTL_ADD, _sock, &ev);
+
+	_events.reserve(_max_events * sizeof(epoll_event));
 }
 
 Server::~Server() {
-	for(auto client : _clients) {
-		delete client.second.getDispatch();
-	}
 	close(_fd);
  	close(_sock);
 }
@@ -72,12 +73,11 @@ Channel* Server::findChannel(std::string name) {
 }
 
 void Server::addClient(int fd) {
-	_clients.try_emplace(fd, fd);
+	_clients.try_emplace(fd, std::make_shared<Client>(fd));
 }
 
 void Server::removeClient(const int fd) {
 	if(not _clients.empty()) {
-		delete getClient(fd).getDispatch();
 		_clients.erase(fd);
 	}
 	close(fd);
@@ -119,13 +119,16 @@ void Server::poll(int tout) {
 	for (int idx = 0; idx < nbrEvents; idx++) {
 		uint32_t event = _events[idx].events;
 	 	int fd = _events[idx].data.fd;
-
+		if (fd == _sock) {
+			Handler::acceptClient(_sock);
+			continue;
+		}
 		for (uint32_t type : eventTypes) {
 			if (_clients.count(fd) == 0)
 				return ;
-			if (_clients.at(fd).handler(type & event)) {
+			if (_clients.at(fd)->handler(type & event)) {
 				[[maybe_unused]]
-				auto fut = std::async(std::launch::async, _clients.at(fd).getHandler(type & event), fd);
+				auto fut = std::async(std::launch::async, _clients.at(fd)->getHandler(type & event), fd);
 			}
 		}
 
@@ -139,20 +142,15 @@ void Server::registerHandler(const int fd, uint32_t eventType, std::function<voi
 		throw std::runtime_error("Server::registerHandler: Error - no such file descriptor");
 
 
-	Client &cli = _clients.at(fd);
+	Client *cli = _clients.at(fd).get();
 
 	for (uint32_t eventT: eventTypes) {
 		if (eventT & eventType) {
-			cli.setHandler(eventType, handler);
+			cli->setHandler(eventType, handler);
 		}
 	}
 
-	_reloadHandler(cli);
-}
-
-void Server::_addOwnSocket(int sockfd) {
-	_clients.try_emplace(sockfd, sockfd);
-	registerHandler(_sock, EPOLLIN, [](int socket) { Handler::acceptClient(socket); });
+	_reloadHandler(*cli);
 }
 
 std::string Server::getTime(void) const {
@@ -161,13 +159,13 @@ std::string Server::getTime(void) const {
 	return ret;
 }
 
-const std::unordered_map<int, class Client>& Server::getClients() const {
+const std::unordered_map<int, std::shared_ptr<Client>>& Server::getClients() const {
 	return (_clients);
 }
 
-Client& Server::getClient(int fd) {
+Client* Server::getClient(int fd) {
 	if (_clients.count(fd) == 0)
 		throw std::runtime_error("Server::getClient: Error - no such file descriptor");
 
-	return (_clients.at(fd));
+	return (_clients.at(fd).get());
 }

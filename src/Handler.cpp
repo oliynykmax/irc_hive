@@ -5,8 +5,9 @@ using namespace std;
 void Handler::clientWrite(int fd) {
 	ssize_t messageLen = 0;
 	vector<char> buf(BUFSIZ);
-	queue<unique_ptr<Message>> msg_queue;
-	RecvParser	parser(msg_queue);
+	Client* client = irc->getClient(fd);
+	RecvParser& parser = client->getParser();
+	std::queue<std::unique_ptr<Message>> &msg_queue = parser.getQueue();
 
 	messageLen = recv(fd, &buf[0], buf.size(), 0);
 	if (messageLen == -1)
@@ -15,7 +16,7 @@ void Handler::clientWrite(int fd) {
 	while (!msg_queue.empty())
 	{
 		const unique_ptr<Message> &msg = msg_queue.front();
-		if (!irc->getClient(fd).getDispatch()->dispatch(msg, fd))
+		if (not irc->getClient(fd)->getDispatch()->dispatch(msg, fd))
 			return ;
 		msg_queue.pop();
 	}

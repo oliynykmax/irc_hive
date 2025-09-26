@@ -69,7 +69,7 @@ bool Channel::setTopic(int user, string topic) {
 		return false;
 	}
 	_topic = topic;
-	string response = ":" + USER(user)->getNick() + " TOPIC " + _name + " :" + topic;
+	string response = ":" + USER(user).getNick() + " TOPIC " + _name + " :" + topic;
 	message(-1, response);
 	return true;
 }
@@ -82,7 +82,7 @@ bool Channel::checkUser(int user) {
 
 const string Channel::addUser(int user, string passwd) {
 	string ret;
-	const string nick = USER(user)->getNick();
+	const string nick = USER(user).getNick();
 	if (not checkUser(user))
 		ret = E443;
 	else if (_mode.contains('l') && _users.size() + _oper.size() >= _limit)
@@ -101,21 +101,21 @@ const string Channel::addUser(int user, string passwd) {
 			ret = E475;
 	else if (isEmpty()) {
 		_oper.emplace(user);
-		USER(user)->join(this);
+		USER(user).join(this);
 	} else {
 		_users.emplace(user);
-		USER(user)->join(this);
+		USER(user).join(this);
 	}
 	return ret;
 }
 
 void Channel::removeUser(int fd, string msg, string cmd) {
 	if (_users.contains(fd)) {
-		USER(fd)->exitChannel(_name);
+		USER(fd).exitChannel(_name);
 		_users.erase(fd);
 		message(fd, msg, cmd);
 	} else if (_oper.contains(fd)) {
-		USER(fd)->exitChannel(_name);
+		USER(fd).exitChannel(_name);
 		_oper.erase(fd);
 		if  (_oper.empty()) {
 			if (_users.empty()) {
@@ -141,7 +141,7 @@ bool Channel::joinWithPassword(int fd, string passwd) {
 			_oper.emplace(fd);
 		else
 			_users.emplace(fd);
-		USER(fd)->join(this);
+		USER(fd).join(this);
 		return true;
 	} else {
 		return false;
@@ -158,7 +158,7 @@ bool Channel::joinWithInvite(int fd, string passwd) {
 				_invite.erase(fd);
 				_users.emplace(fd);
 			}
-			USER(fd)->join(this);
+			USER(fd).join(this);
 			return true;
 		} else {
 			if (joinWithPassword(fd, passwd))
@@ -175,12 +175,12 @@ string Channel::userList(void) const {
 	string ret;
 
 	for (auto users : _users) {
-		ret += USER(users)->getNick();
+		ret += USER(users).getNick();
 		ret += " ";
 	}
 	for (auto users : _oper) {
 		ret += '@';
-		ret += USER(users)->getNick();
+		ret += USER(users).getNick();
 		ret += " ";
 	}
 	ret.erase(ret.end() - 1);
@@ -202,7 +202,7 @@ bool Channel::makeOperator(int fd, string uname) {
 	int newOp = 0;
 
 	for (auto user : _users) {
-		if (USER(user)->getNick() == uname) {
+		if (USER(user).getNick() == uname) {
 			newOp = user;
 			break ;
 		}
@@ -221,7 +221,7 @@ void Channel::invite(int fd) {
 bool Channel::kick(int op, int user) {
 	if (_users.contains(user) && _oper.contains(op)) {
 		_users.erase(user);
-		USER(user)->exitChannel(_name);
+		USER(user).exitChannel(_name);
 		return true;
 	} else {
 		return false;

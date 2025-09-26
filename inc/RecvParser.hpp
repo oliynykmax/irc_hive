@@ -7,7 +7,7 @@
 #include <memory>
 #include "Message.hpp"
 
-/**	
+/**
  * @class	RecvParser
  * @brief	A class for parsing data read by recv() into a message queue
  */
@@ -16,6 +16,7 @@ class	RecvParser
 	public:
 		RecvParser(std::queue<std::unique_ptr<Message>> &msg_queue);
 
+		std::queue<std::unique_ptr<Message>> &getQueue(void);
 		void	feed(const char *read_buf, size_t len);
 
 	private:
