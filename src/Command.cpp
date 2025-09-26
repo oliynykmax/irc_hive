@@ -353,12 +353,9 @@ void PingCommand::execute(const Message &msg, int fd)
 
 void PassCommand::execute(const Message &msg, int fd)
 {
-	if (irc->checkPassword())
-		return ;
-	else if (!msg.params.empty() &&irc->checkPassword(PARAM))
+	if (!msg.params.empty() && irc->checkPassword(PARAM))
 		return irc->getClient(fd)->authenticate();
 	sendResponse(E464, fd);
-	irc->removeClient(fd);
 }
 
 void UnknownCommand::execute(const Message &msg, int fd)

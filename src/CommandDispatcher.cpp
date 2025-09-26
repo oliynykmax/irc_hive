@@ -34,24 +34,24 @@ bool	CommandDispatcher::dispatch(const std::unique_ptr<Message> &msg, int fd)
 	{
 		if (auto cmd = _handlers.find(msg->command); cmd != _handlers.end())
 		{
-			if (not irc->checkPassword() &&
+			if ((not irc->checkPassword() &&
 				not irc->getClient(fd)->isAuthenticated() &&
 				msg->command != "PASS" &&
-				msg->command != "CAP")
+				msg->command != "CAP") ||
+				(msg->command == "PASS" &&
+				not msg->params.empty() &&
+				not irc->checkPassword(msg->params[0])))
 			{
-				std::string response("464 ");
-				response.append(irc->getClient(fd)->getUser().getNick());
-				response.append(" :Password incorrect\r\n");
-				send(fd, response.c_str(), response.size(), 0);
+				std::string response(E464);
+				send(fd, response.data(), response.size(), 0);
 				irc->removeClient(fd);
 				return false;
 			}
 			if (msg->command == "QUIT")
 				return cmd->second->execute(*msg, fd), false;
 			cmd->second->execute(*msg, fd);
-			if (msg->command != "QUIT" &&
-				not irc->getClient(fd)->getUser().getNick().empty() &&
-				not irc->getClient(fd)->getUser().getUser().empty() &&
+			if (not USER(fd).getNick().empty() &&
+				not USER(fd).getUser().empty() &&
 				not irc->getClient(fd)->accessRegistered())
 				_welcome(fd);
 		}
