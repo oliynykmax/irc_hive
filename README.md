@@ -6,8 +6,6 @@ Welcome to **irc_hive**, our C++ implementation of an Internet Relay Chat system
 
 We built an IRC server in C++20 that manages clients, channels, and commands (JOIN, PART, PRIVMSG, etc.). Plus, a bot that connects to servers, joins channels, responds to commands, and kicks users for writing forbidden words. The server works with **irssi** as an IRC client.
 
-## SERVER FEATURES PLEASE ADD ....
-
 Available commands:
 - `!ping` - Replies with "pong!"
 - `!help` - Lists available commands
