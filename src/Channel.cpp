@@ -230,6 +230,7 @@ bool Channel::kick(int op, int user) {
 
 bool Channel::message(int user, string msg, string type, string name) {
 	string message;
+	bool ret = true;
 
 	if (type.empty())
 		message = msg + "\r\n";
@@ -241,14 +242,14 @@ bool Channel::message(int user, string msg, string type, string name) {
 	for (auto users : _users) {
 		if (users == user)
 			continue;
-		else if (-1 == send(users, message.data(), message.size(), 0))
-			return false;
+		if (-1 == send(users, message.data(), message.size(), 0))
+			ret = false;
 	}
 	for (auto users : _oper) {
 		if (users == user)
 			continue;
 		if (-1 == send(users, message.data(), message.size(), 0))
-			return false;
+			ret = false;
 	}
-	return true;
+	return ret;
 }
