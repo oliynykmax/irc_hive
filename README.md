@@ -12,8 +12,6 @@ We built a full IRC server in C++20 that manages clients, channels, and commands
 
 The bot shines with its smart word-filtering system – only channel operators can add/remove banned words, and it auto-kicks offenders to keep chats clean.
 
-We're proud of the robust reconnection logic with exponential backoff that handles network hiccups gracefully, and the extensible command system that lets you easily add new features.
-
 It also accepts invites to join new channels automatically.
 
 Available commands:
