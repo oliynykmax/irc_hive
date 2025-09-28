@@ -114,7 +114,12 @@ void Server::poll(int tout) {
     uint32_t event = _events[idx].events;
     int fd = _events[idx].data.fd;
     if (fd == _sock) {
-      Handler::acceptClient(_sock);
+	  try {
+        Handler::acceptClient(_sock);
+	  }
+	  catch (std::exception &e) {
+       std::cerr << e.what() << std::endl;
+	  }
       continue;
     }
     for (uint32_t type : eventTypes) {
