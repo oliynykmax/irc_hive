@@ -28,7 +28,6 @@ int main(int argc, char *argv[]) {
 
 	signal(SIGINT, [](int) { gSigStatus = 1; });
 	signal(SIGQUIT, [](int) { gSigStatus = 1; });
-	signal(SIGPIPE, SIG_IGN);
 
 	try {
 		if (argc == 3)
